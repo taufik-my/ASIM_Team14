@@ -1,9 +1,9 @@
 # Example README File
 
 Created by:
-|Group Number|X|
+|Group Number|14|
 |:---:|:-------:|
-|Bayu Jamalullael| Student Number|
+|Bayu Jamalullael| 6367984 |
 |Brenda Escobar | Student Number|
 |Brian Parsaoran| Student Number|
 |Taufik Muhamad Y.| Student Number|
