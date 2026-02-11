@@ -4,7 +4,7 @@ Created by:
 |Group Number|14|
 |:---:|:-------:|
 |Bayu Jamalullael| 6367984 |
-|Brenda Escobar | Student Number|
+|Brenda Escobar | 6512191|
 |Brian Parsaoran| Student Number|
 |Taufik Muhamad Y.| Student Number|
 |Zhafran Sidik| Student Number|
