@@ -5,7 +5,7 @@ Created by:
 |:---:|:-------:|
 |Bayu Jamalullael| 6367984 |
 |Brenda Escobar | Student Number|
-|Brian Parsaoran| Student Number|
+|Brian Parsaoran| 6147674 |
 |Taufik Muhamad Y.| Student Number|
 |Zhafran Sidik| Student Number|
 
