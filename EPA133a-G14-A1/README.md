@@ -7,7 +7,7 @@ Created by:
 |Brenda Escobar | 6512191|
 |Brian Parsaoran| 6147674 |
 |Taufik Muhamad Y.| Student Number|
-|Zhafran Sidik| 5658411|
+|Zhafran Sidik| 565841|
 
 ## Introduction
 
