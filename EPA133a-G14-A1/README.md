@@ -4,10 +4,10 @@ Created by:
 |Group Number|14|
 |:---:|:-------:|
 |Bayu Jamalullael| 6367984 |
-|Brenda Escobar | Student Number|
-|Brian Parsaoran| Student Number|
+|Brenda Escobar | 6512191|
+|Brian Parsaoran| 6147674 |
 |Taufik Muhamad Y.| Student Number|
-|Zhafran Sidik| Student Number|
+|Zhafran Sidik| 5658411|
 
 ## Introduction
 
