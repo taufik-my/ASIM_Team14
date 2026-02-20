@@ -75,12 +75,7 @@ They are not required to reproduce the final results.
 
 To reproduce the analysis:
 
-1. Install required packages:
-
-   ```
-   pip install -r requirements.txt
-   ```
-2. Run `Notebook Group 14.ipynb` from top to bottom.
+Run `Notebook Group 14.ipynb` from top to bottom.
 
 ---
 
@@ -95,11 +90,11 @@ WBSIM_Lab1_2024
 ```
 
 ⚠️ **Important:**
-Use the original `WBSIM_Lab1_2024` folder (NOT the cleaned or modified version).
+Use the original `WBSIM_Lab1_2024` folder (NOT the cleaned version).
 This folder is not included in this repository due to size limitations.
 It is assumed that the teaching assistants have access to it.
 
-2. Navigate to:
+1. Navigate to:
 
 ```
 WBSIM_Lab1_2024/infrastructure/
