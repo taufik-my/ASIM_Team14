@@ -6,7 +6,7 @@ Created by:
 |Bayu Jamalullael| 6367984 |
 |Brenda Escobar | 6512191|
 |Brian Parsaoran| 6147674 |
-|Taufik Muhamad Y.| Student Number|
+|Taufik Muhamad Y.| 6378056 |
 |Zhafran Sidik| 565841|
 
 ## Introduction
