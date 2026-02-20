@@ -1,4 +1,4 @@
-# EPA133a – Advanced Simulation  
+# EPA133A – Advanced Simulation  
 ## ASIM Team 14 (2025/2026)
 
 This repository contains all assignments and supporting materials for the course **EPA133a – Advanced Simulation**.
@@ -68,7 +68,9 @@ Created by:
 |Taufik Muhamad Y.| 6378056 |
 |Zhafran Sidik| 565841|
 
-EPA133a – Advanced Simulation  
-Academic Year 2025/2026  
+EPA133A – Advanced Simulation  
+MSc Engineering & Policy Analysis (EPA)  
+Delft University of Technology  
+Academic Year 2025/2026
 
 
