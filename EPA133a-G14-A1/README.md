@@ -100,8 +100,7 @@ It is assumed that the teaching assistants have access to it.
 WBSIM_Lab1_2024/infrastructure/
 ```
 
-3. Replace the existing infrastructure data with the cleaned files from:
-
+3. Replace the existing infrastructure data with the cleaned `road_tsv` and `BMMS_overview.xlsx` files from:
 ```
 EPA133a-G14-A1/data/processed/
 ```
