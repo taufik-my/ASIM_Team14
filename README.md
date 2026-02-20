@@ -60,6 +60,8 @@ To reproduce results for a specific assignment:
 
 ## 👥 Team 14
 Created by:
+|Team Number|14|
+|:---:|:-------:|
 |Bayu Jamalullael| 6367984 |
 |Brenda Escobar | 6512191|
 |Brian Parsaoran| 6147674 |
