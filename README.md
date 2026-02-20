@@ -1,41 +1,72 @@
-# EPA1352 Lab Assignment Submission Guidelines
+# EPA133a – Advanced Simulation  
+## ASIM Team 14 (2025/2026)
 
-Last updated: 2024-01-15
+This repository contains all assignments and supporting materials for the course **EPA133a – Advanced Simulation**.
 
-## Folder Structure
+The repository is organized by assignment, with each assignment stored in a dedicated folder. The internal structure of each assignment may differ depending on the specific requirements and modeling approach.
 
-Please follow the format below (not every folder is necessary for every assignment!). You can use the template folder provided. 
+---
+
+## 📁 Repository Structure
 
 ```
-├── README.md          <- The top-level README explaining what the
-│                         project is (preferably in Markdown formatting).
-├── data
-│   ├── interim        
-│   ├── processed     
-│   └── raw           
-│
-├── model             <- Model files, e.g. `G02-A2-Model.py`
-│   ├── input         <- Model input files
-│   └── output        <- Model output files
-│
-├── notebook          <- Jupyter notebook files. Naming convention: your group number,
-│                         and a short `-` delimited description,
-│                         e.g. `G04-A1-initial-data-exploration`.
-├── report            <- Your report e.g. `EPA133a-G04-A2-Report.pdf`
-│   └── figures       
-│
-├── requirements.txt  <- The requirements file for reproducing the
-│                        analysis environment, e.g. generated with 
-│                        `pip freeze > requirements.txt` if using Python
+.
+├── README.md
+├── EPA133a-G14-A1/
+├── EPA133a-G14-A2/
+├── EPA133a-G14-A3/
+└── EPA133a-G14-A4/
 ```
 
-## File Naming
+Each assignment folder contains all relevant materials for that submission, which may include:
 
-Name the overall zipped file, compiled reports, and main model so that we can easily identify you. Please follow this format:
+- Data files (raw and processed)
+- Jupyter notebooks
+- Model scripts
+- Simulation outputs
+- Final report (PDF)
+- Supporting figures
 
->EPA133a-G\<2-Digit Group Number>-A\<Assignment Number>-\<Optional Title>
+---
 
-For example, group 4 submitting assignment 2 should be `EPA133a-G04-A2.zip`.
+## 📄 Assignments
 
-Please use two digits behind the group number to help us sort and organize submissions more easily.
+| Assignment | Description | Status |
+|------------|------------|--------|
+| A1 | Data Quality & Cleaning | Completed |
+| A2 | (To be added) | Upcoming |
+| A3 | (To be added) | Upcoming |
+| A4 | (To be added) | Upcoming |
+
+---
+
+## 🛠 Technologies Used
+
+- Python (Jupyter Notebook)
+- Git & GitHub
+- Java Simulation Framework (provided)
+
+---
+
+## 🔁 Reproducibility
+
+To reproduce results for a specific assignment:
+
+1. Navigate to the corresponding assignment folder.
+2. Install required dependencies (if applicable).
+3. Run the provided notebooks or model scripts.
+
+---
+
+## 👥 Team 14
+Created by:
+|Bayu Jamalullael| 6367984 |
+|Brenda Escobar | 6512191|
+|Brian Parsaoran| 6147674 |
+|Taufik Muhamad Y.| 6378056 |
+|Zhafran Sidik| 565841|
+
+EPA133a – Advanced Simulation  
+Academic Year 2025/2026  
+
 

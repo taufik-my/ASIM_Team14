@@ -1,7 +1,7 @@
 # Example README File
 
 Created by:
-|Group Number|14|
+|Team Number|14|
 |:---:|:-------:|
 |Bayu Jamalullael| 6367984 |
 |Brenda Escobar | 6512191|
