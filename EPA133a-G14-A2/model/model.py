@@ -1,9 +1,10 @@
 from mesa import Model
 from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
-from components import Source, Sink, SourceSink, Bridge, Link
+from components import Source, Sink, SourceSink, Bridge, Link, Vehicle #include vehicle for data collection
 import pandas as pd
 from collections import defaultdict
+from mesa.datacollection import DataCollector #add function data collector
 
 
 # ---------------------------------------------------------------
@@ -23,6 +24,8 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     x_min = lon_min - lon_edge
     y_min = lat_max + lat_edge
     return y_min, y_max, x_min, x_max
+
+
 
 
 # ---------------------------------------------------------------
@@ -55,7 +58,7 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, scenario=0):
 
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -63,8 +66,40 @@ class BangladeshModel(Model):
         self.space = None
         self.sources = []
         self.sinks = []
+        self.to_remove = [] #new var for delayed removal
+        self.scenario = scenario #new var for scenario argument
 
         self.generate_model()
+
+
+        #added data collector
+        self.datacollector = DataCollector(
+            agent_reporters={
+                "type": lambda a: type(a).__name__,
+                "generated": lambda a: getattr(a, "generated_at_step", None),
+                "remove": lambda a: getattr(a, "removed_at_step", None),
+            }
+        )
+
+    #might be redundant, just in case
+    def generate_bridge_condition(self, condition):
+        # Map condition → probability
+        prob_map = {
+            "A": self.probA,
+            "B": self.probB,
+            "C": self.probC,
+            "D": self.probD,
+        }
+
+        # Default probability if something unexpected appears
+        probability = prob_map.get(condition, 0)
+
+        # Draw random number in [0,1)
+        if self.random.random() < probability:
+            return 1  # breakdown
+        else:
+            return 0  # operational
+
 
     def generate_model(self):
         """
@@ -73,7 +108,7 @@ class BangladeshModel(Model):
         Warning: the labels are the same as the csv column labels
         """
 
-        df = pd.read_csv('../data/demo-1.csv')
+        df = pd.read_csv('../data/df_road_file.csv')
 
         # a list of names of roads to be generated
         roads = ['N1']
@@ -136,7 +171,8 @@ class BangladeshModel(Model):
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
                 elif model_type == 'bridge':
-                    agent = Bridge(row['id'], self, row['length'], row['name'], row['road'])
+                    # add condition and scenario as passing arguments for bridge
+                    agent = Bridge(row['id'], self, row['length'], row['name'], row['road'],row['condition'],self.scenario)
                 elif model_type == 'link':
                     agent = Link(row['id'], self, row['length'], row['name'], row['road'])
 
@@ -163,6 +199,14 @@ class BangladeshModel(Model):
         Advance the simulation by one step.
         """
         self.schedule.step()
+        self.datacollector.collect(self) # datacollector for each step
+
+        #remove agent if marked to be removed, enable the obtain to get removed_at_step
+        if self.to_remove:
+            for a in self.to_remove:
+                self.schedule.remove(a)
+            self.to_remove.clear()
+
 
 
 # EOF -----------------------------------------------------------

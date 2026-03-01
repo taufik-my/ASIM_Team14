@@ -51,10 +51,11 @@ class Bridge(Infra):
     """
 
     def __init__(self, unique_id, model, length=0,
-                 name='Unknown', road_name='Unknown', condition='Unknown'):
+                 name='Unknown', road_name='Unknown', condition='Unknown', scenario=0): #add scenario as argument
         super().__init__(unique_id, model, length, name, road_name)
 
         self.condition = condition
+        self.scenario = scenario
 
         # TODO
         self.delay_time = self.random.randrange(0, 10)
@@ -85,7 +86,10 @@ class Sink(Infra):
     vehicle_removed_toggle = False
 
     def remove(self, vehicle):
-        self.model.schedule.remove(vehicle)
+        #self.model.schedule.remove(vehicle) - remove agent has to be delayed 1 step
+
+        # Do NOT remove from schedule right here; just queue it to be removed from model
+        self.model.to_remove.append(vehicle)
         self.vehicle_removed_toggle = not self.vehicle_removed_toggle
         print(str(self) + ' REMOVE ' + str(vehicle))
 
