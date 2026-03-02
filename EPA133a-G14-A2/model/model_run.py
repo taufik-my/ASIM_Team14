@@ -14,7 +14,7 @@ run_length= 5 * 24 * 60
 # run time 1000 ticks
 #run_length = 1000
 
-seeds = pd.Series(range(1234567)).sample(2, random_state=None).tolist() #generate randomized seeds
+seeds = pd.Series(range(1234567)).sample(10, random_state=None).tolist() #generate randomized seeds
 #uncomment below to try with controlled seed
 #seeds=[1234567,1234567,1234567]
 
@@ -52,7 +52,6 @@ for scenario in range(0,9,1):
         mdf['iteration']=a
         all_runs.append(mdf)
         all_runs_bridge_delay.append(bridge_delay)
-        #mdf.to_csv(f"scenario{scenario} - seed {a}.csv")
 
     # combine all seeds into one dataframe
     out_df = pd.concat(all_runs, ignore_index=True)
