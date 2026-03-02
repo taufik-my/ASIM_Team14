@@ -9,15 +9,15 @@ from mesa.datacollection import DataCollector
 # ---------------------------------------------------------------
 
 # run time 5 x 24 hours; 1 tick 1 minute
-#run_length = 5 * 24 * 60
+run_length = 5 * 24 * 60
 
 # run time 1000 ticks
-run_length = 1000
+#run_length = 1000
 
 seeds = pd.Series(range(1234567)).sample(10, random_state=None).tolist() #generate randomized seeds
 #uncomment below to try with controlled seed
 #seeds=[1234567,1234567,1234567]
-for scenario in range(9):
+for scenario in range(0,9,1):
     a=0
     all_runs = []
     for seed in seeds:

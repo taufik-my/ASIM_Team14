@@ -55,15 +55,47 @@ class Bridge(Infra):
         super().__init__(unique_id, model, length, name, road_name)
 
         self.condition = condition
-        self.scenario = scenario
+        probs_A = [0, 0, 0, 0, 0, 0, 0, 0.05, 0.10]
+        probs_B = [0, 0, 0, 0, 0, 0.05, 0.10, 0.10, 0.20]
+        probs_C = [0, 0, 0, 0.05, 0.1, 0.10, 0.20, 0.20, 0.40]
+        probs_D = [0, 0.05, 0.10, 0.10, 0.20, 0.20, 0.40, 0.40, 0.80]
 
+        if self.condition == 'A':
+            selected_list = probs_A
+        elif self.condition == 'B':
+            selected_list = probs_B
+        elif self.condition == 'C':
+            selected_list = probs_C
+        elif self.condition == 'D':
+            selected_list = probs_D
+        else:
+            selected_list = [0.00] * 9
+
+        self.breakdown_probability = selected_list[scenario]
         # TODO
-        self.delay_time = self.random.randrange(0, 10)
+        # self.delay_time = self.random.randrange(0, 10)
+        self.is_broken = self.random.random() < self.breakdown_probability
+        self.total_waiting_time = 0
+        self.total_vehicle_delayed = 0
         # print(self.delay_time)
 
     # TODO
     def get_delay_time(self):
-        return self.delay_time
+        if not self.is_broken:
+            return 0
+        if self.length > 200:
+            delay = int(self.random.triangular(60, 120, 240))
+        elif 50 <= self.length <= 200:
+            delay = self.random.randint(45, 90)
+        elif 10 <= self.length <= 50:
+            delay = self.random.randint(15, 60)
+        else:
+            delay = self.random.randint(10, 20)
+
+        self.total_waiting_time += delay
+        self.total_vehicle_delayed += 1
+        return delay
+        # return self.delay_time
 
 
 # ---------------------------------------------------------------
@@ -196,7 +228,7 @@ class Vehicle(Agent):
     """
 
     # 50 km/h translated into meter per min
-    speed = 50 * 1000 / 60
+    speed = 48 * 1000 / 60
     # One tick represents 1 minute
     step_time = 1
 
