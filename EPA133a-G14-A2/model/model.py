@@ -77,6 +77,17 @@ class BangladeshModel(Model):
                 "type": lambda a: type(a).__name__,
                 "generated": lambda a: getattr(a, "generated_at_step", None),
                 "remove": lambda a: getattr(a, "removed_at_step", None),
+                "total delay": lambda a: getattr(a, "total_waiting_time", None), #for bonus
+                "name": lambda a: getattr(a, "name", None),  # for bonus
+                "lrp": lambda a: getattr(a, "lrp", None),  # for bonus
+            }
+        )
+
+        #added data collector for bonus
+        self.datacollectorbonus = DataCollector(
+            agent_reporters={
+                "type": lambda a: type(a).__name__,
+                "total delay": lambda a: getattr(a, "total_waiting_time", None),
             }
         )
 
@@ -151,8 +162,8 @@ class BangladeshModel(Model):
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
                 elif model_type == 'bridge':
-                    # add condition and scenario as passing arguments for bridge
-                    agent = Bridge(row['id'], self, row['length'], row['name'], row['road'],row['condition'],self.scenario)
+                    # add condition and scenario as passing arguments for bridge, lrp for bonus
+                    agent = Bridge(row['id'], self, row['length'], row['name'], row['road'],row['condition'],self.scenario,row['lrp'])
                 elif model_type == 'link':
                     agent = Link(row['id'], self, row['length'], row['name'], row['road'])
 

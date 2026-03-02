@@ -51,9 +51,9 @@ class Bridge(Infra):
     """
 
     def __init__(self, unique_id, model, length=0,
-                 name='Unknown', road_name='Unknown', condition='Unknown', scenario=0): #add scenario as argument
+                 name='Unknown', road_name='Unknown', condition='Unknown', scenario=0, lrp='unknown'): #add scenario as argument
         super().__init__(unique_id, model, length, name, road_name)
-
+        self.lrp=lrp
         self.condition = condition
         probs_A = [0, 0, 0, 0, 0, 0, 0, 0.05, 0.10]
         probs_B = [0, 0, 0, 0, 0, 0.05, 0.10, 0.10, 0.20]
