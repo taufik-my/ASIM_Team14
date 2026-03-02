@@ -58,7 +58,7 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, scenario=0):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, scenario=0, roads=['N1']):
 
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -68,8 +68,7 @@ class BangladeshModel(Model):
         self.sinks = []
         self.to_remove = [] #new var for delayed removal
         self.scenario = scenario #new var for scenario argument
-
-        self.generate_model()
+        self.generate_model(roads)
 
 
         #added data collector
@@ -81,27 +80,8 @@ class BangladeshModel(Model):
             }
         )
 
-    #might be redundant, just in case
-    def generate_bridge_condition(self, condition):
-        # Map condition → probability
-        prob_map = {
-            "A": self.probA,
-            "B": self.probB,
-            "C": self.probC,
-            "D": self.probD,
-        }
 
-        # Default probability if something unexpected appears
-        probability = prob_map.get(condition, 0)
-
-        # Draw random number in [0,1)
-        if self.random.random() < probability:
-            return 1  # breakdown
-        else:
-            return 0  # operational
-
-
-    def generate_model(self):
+    def generate_model(self, roads):
         """
         generate the simulation model according to the csv file component information
 
@@ -111,7 +91,7 @@ class BangladeshModel(Model):
         df = pd.read_csv('../data/df_road_file.csv')
 
         # a list of names of roads to be generated
-        roads = ['N1']
+        #roads = ['N1'] #make it generic enough (list as passing parameter)
 
         # roads = [
         #     'N1', 'N2', 'N3', 'N4',
