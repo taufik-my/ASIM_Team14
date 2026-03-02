@@ -21,7 +21,7 @@ seeds = pd.Series(range(1234567)).sample(10, random_state=None).tolist() #genera
 #change the list if other roads needs to be simulated
 roads=['N1']
 
-for scenario in range(0,1,1):
+for scenario in range(0,9,1):
     a=0
     all_runs = []
     for seed in seeds:
