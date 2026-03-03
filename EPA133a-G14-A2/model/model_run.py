@@ -47,7 +47,8 @@ for scenario in range(0,9,1): #run scenario 0-8
 
         #duration
         mdf['duration']=mdf['remove']-mdf['generated']
-        mdf=mdf.dropna(subset=['duration','total delay','lrp','name'])
+        mdf=mdf.dropna(subset=['duration'])
+        mdf=mdf.drop(columns=["name", "lrp", "total delay"])
 
         #add identifier of iteration number and seeds used
         mdf['seed']=seed
