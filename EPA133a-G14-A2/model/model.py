@@ -84,12 +84,12 @@ class BangladeshModel(Model):
         )
 
         #added data collector for bonus
-        self.datacollectorbonus = DataCollector(
-            agent_reporters={
-                "type": lambda a: type(a).__name__,
-                "total delay": lambda a: getattr(a, "total_waiting_time", None),
-            }
-        )
+        #self.datacollectorbonus = DataCollector(
+        #    agent_reporters={
+        #        "type": lambda a: type(a).__name__,
+        #        "total delay": lambda a: getattr(a, "total_waiting_time", None),
+        #    }
+        #)
 
 
     def generate_model(self, roads):

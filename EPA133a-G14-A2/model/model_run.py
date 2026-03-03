@@ -14,18 +14,20 @@ run_length= 5 * 24 * 60
 # run time 1000 ticks
 #run_length = 1000
 
-seeds = pd.Series(range(1234567)).sample(10, random_state=None).tolist() #generate randomized seeds
+#generate randomized seeds
+#this is done outside the loop to ensure every scenario using the same 10 randomized seeds
+seeds = pd.Series(range(1234567)).sample(10, random_state=None).tolist()
 #uncomment below to try with controlled seed
 #seeds=[1234567,1234567,1234567]
 
 #change the list if other roads needs to be simulated
 roads=['N1']
 
-for scenario in range(0,9,1):
+for scenario in range(0,9,1): #run scenario 0-8
     a=0
     all_runs = []
     all_runs_bridge_delay = []
-    for seed in seeds:
+    for seed in seeds: #run seeds for every scenario
         #seed = 1234567
         a+=1
         sim_model = BangladeshModel(seed=seed,scenario=scenario, roads=roads)
@@ -45,7 +47,7 @@ for scenario in range(0,9,1):
 
         #duration
         mdf['duration']=mdf['remove']-mdf['generated']
-        mdf=mdf.dropna(subset=['duration'])
+        mdf=mdf.dropna(subset=['duration','total delay','lrp','name'])
 
         #add identifier of iteration number and seeds used
         mdf['seed']=seed
