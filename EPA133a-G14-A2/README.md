@@ -2,7 +2,7 @@
 
 ## Data-Driven Transport Simulation for Bridge Failures in Bangladesh
 
-**Created by: EPA133a Group 14**
+**Created by: EPA133a Team 14**
 
 
 | Name                 | Student Number |
