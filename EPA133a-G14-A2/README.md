@@ -40,11 +40,6 @@ EPA133a-G14-A2
 │   └── README.md
 │
 ├── experiment
-│   ├── scenario0.csv
-│   ├── scenario1.csv
-│   ├── scenario2.csv
-│   ├── ...
-│   └── scenario8.csv
 │
 ├── img
 │
