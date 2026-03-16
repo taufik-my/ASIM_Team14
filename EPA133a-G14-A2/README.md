@@ -206,7 +206,3 @@ pip install -r requirements.txt
 This project was developed as part of the **EPA133a Advanced Simulation course**.
 
 AI tools were used to assist with documentation and debugging during development. All modeling decisions, implementation, and analysis were performed by the group members.
-
----
-
-If you want, I can also help you make a **much stronger README that TAs love (with badges, reproducibility section, and clearer instructions)** — it can easily bump the rubric score.
