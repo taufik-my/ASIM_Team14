@@ -58,7 +58,7 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    file_name = '../data/demo-4_Copy.csv' #using the copy made for now
+    file_name = '../data/network_data.csv' #using the copy made for now
 
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
 
@@ -83,7 +83,7 @@ class BangladeshModel(Model):
 
         # a list of names of roads to be generated
         # TODO You can also read in the road column to generate this list automatically
-        roads = ['N1', 'N2']
+        roads = df['road'].unique()
 
         df_objects_all = []
         for road in roads:
@@ -121,31 +121,36 @@ class BangladeshModel(Model):
         )
 
         # add graph generation just from Brenda's notebook
-        nodes = df.drop_duplicates(subset='id')
+
+        nodes = df.drop_duplicates(subset="id")
+
         for _, row in nodes.iterrows():
             self.G.add_node(
                 int(row["id"]),
-                road=row["road"],
-                pos=(row["lat"], row["lon"]),
+                road=row["road"],  # first occurrence kept (fine for intersections)
+                pos=(row["lon"], row["lat"]),
             )
 
-        # Add edges
+        # 2. Create edges using shift
         df["from_id"] = df.groupby("road")["id"].shift(1)
         df["to_id"] = df["id"]
+
         edges = df.dropna(subset=["from_id"]).copy()
 
+        # optional: rename for clarity
+        edges = edges.rename(columns={"model_type": "type"})
+
+        # 3. Add edges
         for _, row in edges.iterrows():
             self.G.add_edge(
                 int(row["from_id"]),
                 int(row["to_id"]),
                 road=row["road"],
-                type=row["model_type"],
-                length=row["length"],
-                weight=row["length"]  # <-- Assigning the weight directly!
+                type=row["type"],
+                length=row["length"]
             )
 
-        pos = nx.get_node_attributes(self.G, "pos")
-        labels = nx.get_edge_attributes(self.G, "weight")
+
 
         # ContinuousSpace from the Mesa package;
         # not to be confused with the SimpleContinuousModule visualization
@@ -194,7 +199,7 @@ class BangladeshModel(Model):
         if (source, sink) in self.path_ids_dict:
             return self.path_ids_dict[(source, sink)]
         try:
-            path_list = nx.shortest_path(self.G, source=source, target=sink, weight='weight')
+            path_list = nx.shortest_path(self.G, source=source, target=sink, weight='length')
             path_series = pd.Series(path_list)
 
             self.path_ids_dict[(source, sink)] = path_series
@@ -232,16 +237,39 @@ class BangladeshModel(Model):
     # New function to create the graph
     def draw_graph(self, save_png=False):
         pos = nx.get_node_attributes(self.G, "pos")
-        plt.figure(figsize=(10, 10))
-        nx.draw(self.G, pos=pos, with_labels=True)
+        xs = [xy[0] for xy in pos.values()]
+        ys = [xy[1] for xy in pos.values()]
+
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        pad_x = (max_x - min_x) * 0.01
+        pad_y = (max_y - min_y) * 0.01
+
+        fig, ax = plt.subplots(figsize=(6, 6))
+        nx.draw_networkx_edges(self.G, pos, ax=ax, edge_color="orange", width=1.4)
+        ax.set_xlim(min_x - pad_x, max_x + pad_x)
+        ax.set_ylim(min_y - pad_y, max_y + pad_y)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_axis_off()
         plt.title("Network Routing Map of N1 and N2 with side roads >25km")
+        plt.show()
         if save_png:
             image_path = '../data/bangladesh_network.png'
             plt.savefig(image_path, dpi=300, bbox_inches='tight')
             plt.close()  # Closes the figure to free up memory
-            print(f"Map successfully saved to: {image_path}")
-        else:
-            plt.show()
+
+
+        # pos = nx.get_node_attributes(self.G, "pos")
+        # plt.figure(figsize=(10, 10))
+        # nx.draw(self.G, pos=pos, with_labels=True)
+        # plt.title("Network Routing Map of N1 and N2 with side roads >25km")
+        # if save_png:
+        #     image_path = '../data/bangladesh_network.png'
+        #     plt.savefig(image_path, dpi=300, bbox_inches='tight')
+        #     plt.close()  # Closes the figure to free up memory
+        #     print(f"Map successfully saved to: {image_path}")
+        # else:
+        #     plt.show()
 
     def step(self):
         """
