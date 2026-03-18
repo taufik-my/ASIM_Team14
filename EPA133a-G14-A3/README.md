@@ -184,4 +184,3 @@ Bridges may break down based on their condition category (A/B/C/D) and scenario 
 
 This project was developed as part of the **EPA133a Advanced Simulation course** at TU Delft.
 
-AI tools were used to assist with code implementation and debugging. All modeling decisions, data preparation, and analysis were performed by the group members.
