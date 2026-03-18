@@ -83,7 +83,7 @@ class BangladeshModel(Model):
 
         # a list of names of roads to be generated
         # TODO You can also read in the road column to generate this list automatically
-        roads = df['road'].unique()
+        roads = list(df['road'].unique())
 
         df_objects_all = []
         for road in roads:
