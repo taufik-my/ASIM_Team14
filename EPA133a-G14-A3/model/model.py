@@ -3,10 +3,8 @@ from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
 from components import Source, Sink, SourceSink, Bridge, Link, Intersection
 import pandas as pd
-from collections import defaultdict
 import networkx as nx
-import numpy as np
-from matplotlib import pyplot as plt
+from collections import defaultdict
 
 
 # ---------------------------------------------------------------
@@ -58,9 +56,10 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    file_name = '../data/network_data.csv' #using the copy made for now
+    file_name = '../data/network_data.csv'
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0,
+                 breakdown_probs=None):
 
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -68,7 +67,16 @@ class BangladeshModel(Model):
         self.space = None
         self.sources = []
         self.sinks = []
-        self.G = nx.Graph() #added this
+
+        # NetworkX graph for shortest-path routing between SourceSinks
+        self.G = nx.Graph()
+
+        # collected trip data for analysis
+        self.trip_data = []
+
+        # bridge breakdown probabilities per condition category
+        # e.g. {'A': 0.05, 'B': 0.10, 'C': 0.20, 'D': 0.40}
+        self.breakdown_probs = breakdown_probs if breakdown_probs else {}
 
         self.generate_model()
 
@@ -76,14 +84,17 @@ class BangladeshModel(Model):
         """
         generate the simulation model according to the csv file component information
 
+        Also builds a NetworkX graph for shortest-path routing.
+        Cross-reference entries at the end of each road's data connect
+        side roads to main roads via shared intersection IDs.
+
         Warning: the labels are the same as the csv column labels
         """
 
         df = pd.read_csv(self.file_name)
 
-        # a list of names of roads to be generated
-        # TODO You can also read in the road column to generate this list automatically
-        roads = list(df['road'].unique())
+        # automatically read the list of roads from the data
+        roads = df['road'].unique().tolist()
 
         df_objects_all = []
         for road in roads:
@@ -100,15 +111,71 @@ class BangladeshModel(Model):
                 3. put the path in reversed order and reindex
                 4. add the path to the path_ids_dict so that the vehicles can drive backwards too
                 """
-                #Commenting this out
-                # path_ids = df_objects_on_road['id']
-                # path_ids.reset_index(inplace=True, drop=True)
-                # self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                # self.path_ids_dict[path_ids[0], None] = path_ids
-                # path_ids = path_ids[::-1]
-                # path_ids.reset_index(inplace=True, drop=True)
-                # self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                # self.path_ids_dict[path_ids[0], None] = path_ids
+                path_ids = df_objects_on_road['id']
+                path_ids.reset_index(inplace=True, drop=True)
+                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
+                self.path_ids_dict[path_ids[0], None] = path_ids
+                path_ids = path_ids[::-1]
+                path_ids.reset_index(inplace=True, drop=True)
+                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
+                self.path_ids_dict[path_ids[0], None] = path_ids
+
+                # --- Build NetworkX graph edges for this road ---
+                df_road = df_objects_on_road.reset_index(drop=True)
+                ss_mask = df_road['model_type'].str.strip() == 'sourcesink'
+                ss_positions = df_road[ss_mask].index.tolist()
+
+                if len(ss_positions) >= 2:
+                    first_ss_pos = ss_positions[0]
+                    last_ss_pos = ss_positions[-1]
+
+                    # Main body: first SourceSink to last SourceSink
+                    main_body = df_road.iloc[first_ss_pos:last_ss_pos + 1]
+                    main_ids = main_body['id'].tolist()
+
+                    # Add edges between consecutive main body components
+                    for i in range(len(main_ids) - 1):
+                        w = max(float(main_body.iloc[i]['length']), 1)
+                        self.G.add_edge(main_ids[i], main_ids[i + 1], weight=w)
+
+                    # Cross-references: entries after the last SourceSink
+                    if last_ss_pos < len(df_road) - 1:
+                        cross_refs = df_road.iloc[last_ss_pos + 1:]
+                        first_ss_id = main_ids[0]
+                        last_ss_id = main_ids[-1]
+                        first_lat = float(main_body.iloc[0]['lat'])
+                        first_lon = float(main_body.iloc[0]['lon'])
+                        last_lat = float(main_body.iloc[-1]['lat'])
+                        last_lon = float(main_body.iloc[-1]['lon'])
+
+                        for _, ref in cross_refs.iterrows():
+                            ref_id = ref['id']
+                            lrp_val = ref.get('lrp', '')
+                            lrp = '' if pd.isna(lrp_val) else str(lrp_val).strip()
+
+                            if lrp == 'LRPS':
+                                # connects to start of this road
+                                self.G.add_edge(first_ss_id, ref_id, weight=1)
+                            elif lrp == 'LRPE':
+                                # connects to end of this road
+                                self.G.add_edge(last_ss_id, ref_id, weight=1)
+                            else:
+                                # match by coordinate proximity
+                                d_start = ((float(ref['lat']) - first_lat) ** 2 +
+                                           (float(ref['lon']) - first_lon) ** 2)
+                                d_end = ((float(ref['lat']) - last_lat) ** 2 +
+                                         (float(ref['lon']) - last_lon) ** 2)
+                                if d_start <= d_end:
+                                    self.G.add_edge(first_ss_id, ref_id, weight=1)
+                                else:
+                                    self.G.add_edge(last_ss_id, ref_id, weight=1)
+
+                elif len(ss_positions) == 1:
+                    # single sourcesink road — add all consecutive edges
+                    all_ids = df_road['id'].tolist()
+                    for i in range(len(all_ids) - 1):
+                        w = max(float(df_road.iloc[i]['length']), 1)
+                        self.G.add_edge(all_ids[i], all_ids[i + 1], weight=w)
 
         # put back to df with selected roads so that min and max and be easily calculated
         df = pd.concat(df_objects_all)
@@ -119,38 +186,6 @@ class BangladeshModel(Model):
             df['lon'].max(),
             0.05
         )
-
-        # add graph generation just from Brenda's notebook
-
-        nodes = df.drop_duplicates(subset="id")
-
-        for _, row in nodes.iterrows():
-            self.G.add_node(
-                int(row["id"]),
-                road=row["road"],  # first occurrence kept (fine for intersections)
-                pos=(row["lon"], row["lat"]),
-            )
-
-        # 2. Create edges using shift
-        df["from_id"] = df.groupby("road")["id"].shift(1)
-        df["to_id"] = df["id"]
-
-        edges = df.dropna(subset=["from_id"]).copy()
-
-        # optional: rename for clarity
-        edges = edges.rename(columns={"model_type": "type"})
-
-        # 3. Add edges
-        for _, row in edges.iterrows():
-            self.G.add_edge(
-                int(row["from_id"]),
-                int(row["to_id"]),
-                road=row["road"],
-                type=row["type"],
-                length=row["length"]
-            )
-
-
 
         # ContinuousSpace from the Mesa package;
         # not to be confused with the SimpleContinuousModule visualization
@@ -176,6 +211,12 @@ class BangladeshModel(Model):
                     agent = Sink(row['id'], self, row['length'], name, row['road'])
                     self.sinks.append(agent.unique_id)
                 elif model_type == 'sourcesink':
+                    if row['id'] in self.schedule._agents:
+                        # replace existing agent (e.g. intersection) with SourceSink
+                        # so that vehicles can be generated at shared nodes
+                        existing = self.schedule._agents[row['id']]
+                        self.schedule.remove(existing)
+                        self.space.remove_agent(existing)
                     agent = SourceSink(row['id'], self, row['length'], name, row['road'])
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
@@ -194,87 +235,80 @@ class BangladeshModel(Model):
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
-    #New function to calculate the shortest path
-    def find_shortest_path(self, source, sink):
-        if (source, sink) in self.path_ids_dict:
-            return self.path_ids_dict[(source, sink)]
-        try:
-            path_list = nx.shortest_path(self.G, source=source, target=sink, weight='length')
-            path_series = pd.Series(path_list)
-
-            self.path_ids_dict[(source, sink)] = path_series
-            self.path_ids_dict[(sink, source)] = pd.Series(path_list[::-1])
-            return path_series
-
-        except nx.NetworkXNoPath:
-            print(f"No path between {source} and {sink}")
-            return pd.Series([])
-
     def get_random_route(self, source):
         """
-        pick up a random route given an origin
+        Pick a random sink destination and find shortest path via NetworkX.
+        Caches discovered paths in path_ids_dict for future lookups.
         """
         while True:
-            # different source and sink
             sink = self.random.choice(self.sinks)
-            if sink is not source:
+            if sink != source:
                 break
-        #Update the return statement here
-        return self.find_shortest_path(source, sink)
 
-        #return self.path_ids_dict[source, sink]
+        # check cache first
+        if (source, sink) in self.path_ids_dict:
+            cached = self.path_ids_dict[source, sink]
+            if len(cached) > 0:
+                return cached
 
-    # TODO: just use the random route
+        # compute shortest path using NetworkX
+        try:
+            path = nx.shortest_path(self.G, source=source, target=sink, weight='weight')
+            path_series = pd.Series(path)
+            path_series.reset_index(inplace=True, drop=True)
+            self.path_ids_dict[source, sink] = path_series
+            return path_series
+        except nx.NetworkXNoPath:
+            # no path exists, fall back to straight route
+            return self.get_straight_route(source)
+
     def get_route(self, source):
+        """
+        Get a route for a vehicle generated at the given source.
+        Uses random routing with NetworkX shortest path.
+        """
         return self.get_random_route(source)
 
-    #Deprecate
-    # def get_straight_route(self, source):
-    #     """
-    #     pick up a straight route given an origin
-    #     """
-    #     return self.path_ids_dict[source, None]
-    # New function to create the graph
-    def draw_graph(self, save_png=False):
-        pos = nx.get_node_attributes(self.G, "pos")
-        xs = [xy[0] for xy in pos.values()]
-        ys = [xy[1] for xy in pos.values()]
-
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-        pad_x = (max_x - min_x) * 0.01
-        pad_y = (max_y - min_y) * 0.01
-
-        fig, ax = plt.subplots(figsize=(6, 6))
-        nx.draw_networkx_edges(self.G, pos, ax=ax, edge_color="orange", width=1.4)
-        ax.set_xlim(min_x - pad_x, max_x + pad_x)
-        ax.set_ylim(min_y - pad_y, max_y + pad_y)
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_axis_off()
-        plt.title("Network Routing Map of N1 and N2 with side roads >25km")
-        plt.show()
-        if save_png:
-            image_path = '../data/bangladesh_network.png'
-            plt.savefig(image_path, dpi=300, bbox_inches='tight')
-            plt.close()  # Closes the figure to free up memory
-
-
-        # pos = nx.get_node_attributes(self.G, "pos")
-        # plt.figure(figsize=(10, 10))
-        # nx.draw(self.G, pos=pos, with_labels=True)
-        # plt.title("Network Routing Map of N1 and N2 with side roads >25km")
-        # if save_png:
-        #     image_path = '../data/bangladesh_network.png'
-        #     plt.savefig(image_path, dpi=300, bbox_inches='tight')
-        #     plt.close()  # Closes the figure to free up memory
-        #     print(f"Map successfully saved to: {image_path}")
-        # else:
-        #     plt.show()
+    def get_straight_route(self, source):
+        """
+        pick up a straight route given an origin
+        """
+        return self.path_ids_dict[source, None]
 
     def step(self):
         """
         Advance the simulation by one step.
         """
         self.schedule.step()
+
+    def record_trip(self, vehicle):
+        """
+        Record completed trip data for a vehicle that has reached its destination.
+        """
+        origin_id = vehicle.generated_by.unique_id
+        dest_id = vehicle.path_ids.iloc[-1]
+        dest_agent = self.schedule._agents.get(dest_id)
+
+        self.trip_data.append({
+            'vehicle_id': vehicle.unique_id,
+            'origin_id': origin_id,
+            'origin_road': vehicle.generated_by.road_name,
+            'dest_id': dest_id,
+            'dest_road': dest_agent.road_name if dest_agent else 'unknown',
+            'generated_at': vehicle.generated_at_step,
+            'removed_at': vehicle.removed_at_step,
+            'travel_time': vehicle.removed_at_step - vehicle.generated_at_step,
+            'total_waiting_time': vehicle.total_waiting_time,
+            'bridges_passed': vehicle.bridges_passed,
+            'path_length': len(vehicle.path_ids),
+        })
+
+    def export_data(self, file_path):
+        """
+        Export collected trip data to a CSV file.
+        """
+        df = pd.DataFrame(self.trip_data)
+        df.to_csv(file_path, index=False)
+        return df
 
 # EOF -----------------------------------------------------------

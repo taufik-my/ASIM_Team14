@@ -37,17 +37,22 @@ class Infra(Agent):
 # ---------------------------------------------------------------
 class Bridge(Infra):
     """
-    Creates delay time
+    Creates delay time based on bridge condition and length.
+
+    A bridge may be broken down based on its condition category (A/B/C/D)
+    and the corresponding breakdown probability set in the model.
+    If broken, delay depends on bridge length (Assignment 2 spec).
 
     Attributes
     __________
-    condition:
-        condition of the bridge
+    condition: str
+        condition category of the bridge (A, B, C, D)
+
+    broken_down: bool
+        whether this bridge is broken down in this replication
 
     delay_time: int
-        the delay (in ticks) caused by this bridge
-    ...
-
+        the delay (in ticks) caused by this bridge per vehicle visit
     """
 
     def __init__(self, unique_id, model, length=0,
@@ -55,14 +60,34 @@ class Bridge(Infra):
         super().__init__(unique_id, model, length, name, road_name)
 
         self.condition = condition
+        self.broken_down = False
 
-        # TODO
-        self.delay_time = self.random.randrange(0, 10)
-        # print(self.delay_time)
+        # determine if this bridge breaks down based on condition probability
+        breakdown_probs = getattr(model, 'breakdown_probs', {})
+        prob = breakdown_probs.get(self.condition, 0)
+        if prob > 0 and self.random.random() < prob:
+            self.broken_down = True
 
-    # TODO
     def get_delay_time(self):
-        return self.delay_time
+        """
+        Returns delay in ticks (minutes) based on bridge length.
+        Only applies if the bridge is broken down.
+        """
+        if not self.broken_down:
+            return 0
+
+        if self.length > 200:
+            # Triangular(1, 2, 4) hours -> convert to minutes
+            return int(self.random.triangular(60, 120, 240))
+        elif self.length >= 50:
+            # Uniform(45, 90) minutes
+            return int(self.random.uniform(45, 90))
+        elif self.length >= 10:
+            # Uniform(15, 60) minutes
+            return int(self.random.uniform(15, 60))
+        else:
+            # Under 10m: Uniform(10, 20) minutes
+            return int(self.random.uniform(10, 20))
 
 
 # ---------------------------------------------------------------
@@ -92,7 +117,6 @@ class Sink(Infra):
     def remove(self, vehicle):
         self.model.schedule.remove(vehicle)
         self.vehicle_removed_toggle = not self.vehicle_removed_toggle
-        print(str(self) + ' REMOVE ' + str(vehicle))
 
 
 # ---------------------------------------------------------------
@@ -139,7 +163,6 @@ class Source(Infra):
                 Source.truck_counter += 1
                 self.vehicle_count += 1
                 self.vehicle_generated_flag = True
-                print(str(self) + " GENERATE " + str(agent))
         except Exception as e:
             print("Oops!", e.__class__, "occurred.")
 
@@ -220,6 +243,8 @@ class Vehicle(Agent):
         self.waiting_time = 0
         self.waited_at = None
         self.removed_at_step = None
+        self.total_waiting_time = 0
+        self.bridges_passed = 0
 
     def __str__(self):
         return "Vehicle" + str(self.unique_id) + \
@@ -245,11 +270,6 @@ class Vehicle(Agent):
 
         if self.state == Vehicle.State.DRIVE:
             self.drive()
-
-        """
-        To print the vehicle trajectory at each step
-        """
-        print(self)
 
     def drive(self):
 
@@ -278,10 +298,15 @@ class Vehicle(Agent):
             # arrive at the sink
             self.arrive_at_next(next_infra, 0)
             self.removed_at_step = self.model.schedule.steps
+            # record trip data before removal
+            self.model.record_trip(self)
             self.location.remove(self)
             return
         elif isinstance(next_infra, Bridge):
-            self.waiting_time = next_infra.get_delay_time()
+            self.bridges_passed += 1
+            delay = next_infra.get_delay_time()
+            self.waiting_time = delay
+            self.total_waiting_time += delay
             if self.waiting_time > 0:
                 # arrive at the bridge and wait
                 self.arrive_at_next(next_infra, 0)
