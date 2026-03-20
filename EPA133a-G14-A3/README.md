@@ -33,6 +33,7 @@ EPA133a-G14-A3
 │   ├── network_data.csv              # Input data for model generation (9 roads)
 │   ├── _roads3.csv                   # Raw road dataset
 │   ├── BMMS_overview.xlsx            # Bridge metadata
+│   ├── gis/                          # GIS shapefiles (for bonus intersection analysis)
 │   └── README.md
 │
 ├── experiment/
@@ -40,7 +41,8 @@ EPA133a-G14-A3
 │   ├── scenario 1.csv                # D=5%
 │   ├── scenario 2.csv                # C=5%, D=10%
 │   ├── scenario 3.csv                # B=5%, C=10%, D=20%
-│   └── scenario 4.csv                # A=5%, B=10%, C=20%, D=40%
+│   ├── scenario 4.csv                # A=5%, B=10%, C=20%, D=40%
+│   └── scenario N bridges.csv        # Bridge delay data per scenario
 │
 ├── img/                              # Generated figures for report
 │
@@ -49,6 +51,7 @@ EPA133a-G14-A3
 │   ├── components.py                 # Agent definitions (Bridge, Vehicle, etc.)
 │   ├── model_run.py                  # Experiment runner (5 scenarios x 10 reps)
 │   ├── model_viz.py                  # Visualization server
+│   ├── mesa_networkx_flowchart.py    # Generates MESA-NetworkX flowchart diagram
 │   ├── README.md
 │   └── ContinuousSpace/             # Custom visualization module
 │
