@@ -47,4 +47,6 @@ python model_viz.py
 
 - [model_viz.py](model_viz.py): Sets up the browser-based Mesa visualization. Not used during experiments.
 
+- [mesa_networkx_flowchart.py](mesa_networkx_flowchart.py): Generates the MESA–NetworkX data exchange flowchart diagram. Outputs PNG and PDF to `../img/`.
+
 - [ContinuousSpace](ContinuousSpace): Custom visualization module for continuous canvas with geographic coordinates. Editing NOT recommended.

@@ -1,8 +1,7 @@
 from mesa import Model
 from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
-from mesa.datacollection import DataCollector
-from components import Source, Sink, SourceSink, Bridge, Link, Intersection, Vehicle
+from components import Source, Sink, SourceSink, Bridge, Link, Intersection
 import pandas as pd
 import networkx as nx
 from collections import defaultdict
@@ -80,18 +79,6 @@ class BangladeshModel(Model):
         self.breakdown_probs = breakdown_probs if breakdown_probs else {}
 
         self.generate_model()
-
-        # Mesa DataCollector for model-level metrics per step
-        self.datacollector = DataCollector(
-            model_reporters={
-                "active_vehicles": lambda m: sum(
-                    1 for a in m.schedule._agents.values() if isinstance(a, Vehicle)),
-                "total_trips_completed": lambda m: len(m.trip_data),
-                "broken_bridges": lambda m: sum(
-                    1 for a in m.schedule._agents.values()
-                    if isinstance(a, Bridge) and a.broken_down),
-            }
-        )
 
     def generate_model(self):
         """
@@ -293,7 +280,6 @@ class BangladeshModel(Model):
         Advance the simulation by one step.
         """
         self.schedule.step()
-        self.datacollector.collect(self)
 
     def record_trip(self, vehicle):
         """
@@ -324,5 +310,22 @@ class BangladeshModel(Model):
         df = pd.DataFrame(self.trip_data)
         df.to_csv(file_path, index=False)
         return df
+
+    def get_bridge_data(self):
+        """
+        Return data for all bridges in the model.
+        """
+        bridges = [a for a in self.schedule._agents.values()
+                   if isinstance(a, Bridge)]
+        return [{
+            'bridge_id': b.unique_id,
+            'name': b.name,
+            'road': b.road_name,
+            'condition': b.condition,
+            'length': b.length,
+            'broken_down': b.broken_down,
+            'total_delay_min': b.total_delay_caused,
+            'vehicles_delayed': b.vehicles_delayed,
+        } for b in bridges]
 
 # EOF -----------------------------------------------------------

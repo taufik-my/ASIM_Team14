@@ -61,6 +61,8 @@ class Bridge(Infra):
 
         self.condition = condition
         self.broken_down = False
+        self.total_delay_caused = 0
+        self.vehicles_delayed = 0
 
         # determine if this bridge breaks down based on condition probability
         breakdown_probs = getattr(model, 'breakdown_probs', {})
@@ -307,6 +309,9 @@ class Vehicle(Agent):
             delay = next_infra.get_delay_time()
             self.waiting_time = delay
             self.total_waiting_time += delay
+            if delay > 0:
+                next_infra.total_delay_caused += delay
+                next_infra.vehicles_delayed += 1
             if self.waiting_time > 0:
                 # arrive at the bridge and wait
                 self.arrive_at_next(next_infra, 0)

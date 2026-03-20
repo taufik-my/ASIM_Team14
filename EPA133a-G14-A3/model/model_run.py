@@ -1,8 +1,6 @@
 """
-    Experiment runner for Assignment 3
-    Runs 5 scenarios with 10 replications each (different seeds).
-    Each replication has different bridges breaking down.
-    Output CSV files are saved to the experiment/ folder.
+    Run simulation
+    Can run a single simulation or full experiments (5 scenarios x 10 replications).
 """
 
 from model import BangladeshModel
@@ -41,14 +39,14 @@ OUTPUT_DIR = '../experiment'
 # ---------------------------------------------------------------
 
 def run_single(seed, breakdown_probs, run_length):
-    """Run a single simulation and return trip data DataFrame."""
+    """Run a single simulation and return trip data DataFrame and model."""
     Source.truck_counter = 0
     model = BangladeshModel(seed=seed, breakdown_probs=breakdown_probs)
 
     for _ in range(run_length):
         model.step()
 
-    return pd.DataFrame(model.trip_data)
+    return pd.DataFrame(model.trip_data), model
 
 
 def run_experiments():
@@ -60,15 +58,23 @@ def run_experiments():
         print(f'{"="*60}')
 
         all_trips = []
+        all_bridges = []
         for rep in range(NUM_REPLICATIONS):
             seed = SEEDS[rep]
             t0 = time.time()
 
-            df_trips = run_single(seed, probs, RUN_LENGTH)
+            df_trips, model = run_single(seed, probs, RUN_LENGTH)
             df_trips['replication'] = rep + 1
             df_trips['seed'] = seed
             df_trips['scenario'] = scenario_name
             all_trips.append(df_trips)
+
+            # collect all broken bridge data for this replication
+            bridge_data = model.get_bridge_data()
+            for b in bridge_data:
+                b['replication'] = rep + 1
+                b['seed'] = seed
+            all_bridges.extend(bridge_data)
 
             elapsed = time.time() - t0
             print(f'  Replication {rep+1}/{NUM_REPLICATIONS} (seed={seed}): '
@@ -77,11 +83,18 @@ def run_experiments():
                   f'mean wait={df_trips["total_waiting_time"].mean():.1f} min, '
                   f'({elapsed:.1f}s)')
 
-        # Combine all replications and save
+        # Combine all replications and save trips
         df_scenario = pd.concat(all_trips, ignore_index=True)
         output_path = os.path.join(OUTPUT_DIR, f'{scenario_name}.csv')
         df_scenario.to_csv(output_path, index=False)
         print(f'  -> Saved {len(df_scenario)} trips to {output_path}')
+
+        # Save bridge delay data
+        if all_bridges:
+            df_bridges = pd.DataFrame(all_bridges)
+            bridge_path = os.path.join(OUTPUT_DIR, f'{scenario_name} bridges.csv')
+            df_bridges.to_csv(bridge_path, index=False)
+            print(f'  -> Saved bridge data to {bridge_path}')
 
 
 if __name__ == '__main__':
