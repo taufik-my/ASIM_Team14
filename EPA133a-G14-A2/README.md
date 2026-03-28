@@ -204,5 +204,3 @@ pip install -r requirements.txt
 # Acknowledgements
 
 This project was developed as part of the **EPA133a Advanced Simulation course**.
-
-AI tools were used to assist with documentation and debugging during development. All modeling decisions, implementation, and analysis were performed by the group members.

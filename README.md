@@ -34,8 +34,8 @@ Each assignment folder contains all relevant materials for that submission, whic
 | Assignment | Description | Status |
 |------------|------------|--------|
 | A1 | Data Quality & Cleaning | Completed |
-| A2 | (To be added) | Upcoming |
-| A3 | (To be added) | Upcoming |
+| A2 | Building Components | Completed |
+| A3 | Network Model Generation | Completed |
 | A4 | (To be added) | Upcoming |
 
 ---

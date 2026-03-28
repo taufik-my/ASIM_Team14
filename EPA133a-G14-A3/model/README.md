@@ -1,78 +1,52 @@
-# Simple Transport Model Demo in MESA
+# Transport Network Model in MESA + NetworkX
 
-Created by:
-Yilin HUANG
-
-Email:
-y.huang@tudelft.nl
-
-Version:
-1.1
+Created by: EPA133a Group 14
 
 ## Introduction
 
-A simple transport model demo in MESA for EPA133a Advanced Simulation course Assignment 3.
+An agent-based transport simulation model using Mesa 2.1.4 and NetworkX for EPA133a Assignment 3. Simulates freight traffic across 9 national roads in Bangladesh (N1, N2, N102, N104, N105, N106, N204, N207, N208).
+
+Vehicles are generated at both ends of each road (SourceSinks) and routed to random destinations via NetworkX shortest-path. Bridge breakdowns cause delays based on condition category and bridge length.
 
 ## How to Use
 
-- Create and activate a virtual environment
-
-In PyCharm, you can create a virtual environment by following the steps below:
-
-    1. Open the project in PyCharm
-    2. Go to Settings -> Project: epa133a -> Python Interpreter
-    3. Click "Add Interpreter"
-    4. Select "Add Local Interpreter"
-    5. Select Virtualenv Environment
-    6. Select New environment
-    7. Select Base interpreter as Python 3.11
-    8. Click OK and also close the settings with OK
-
-Afterwards, you should see "Python 3.11" (epa133a) in the bottom-right corner of the PyCharm window.
-To install the requirements, open a terminal/command line window in PyCharm and type:
+- Create and activate a virtual environment, then install dependencies:
 
 ```
-    $ pip install -r requirements.txt
+pip install -r requirements.txt
+pip install networkx
 ```
 
-- Launch the simulation model with visualization
+- Run the full experiments (5 scenarios × 10 replications):
 
 ```
-    $ python model_viz.py
+python model_run.py
 ```
 
-- Launch the simulation model without visualization
+Results are saved to `../experiment/`.
+
+- Launch the visualization (optional):
 
 ```
-    $ python model_run.py
+python model_viz.py
 ```
 
 ## Files
 
-- [model.py](model.py): Contains the model `BangladeshModel` which is a subclass of Mesa `Model`. It reads a `csv` file with specific format for (transport) model generation. (See the README in the `data` directory for data format.) In addition to dynamic behavior, each model component instance (i.e., object) also has geo-location variables, i.e. latitude and longitude in Decimal Degrees (DD). The given bounds of the latitude and longitude of all objects are translated into the bounds of the HTML5 canvas, which is used in case the visualization is launched.
+- [model.py](model.py): Contains `BangladeshModel`, a subclass of Mesa `Model`. Reads `network_data.csv` to generate the road network. Builds a **NetworkX graph** for cross-road shortest-path routing. Vehicles pick random destinations, and discovered paths are cached in `path_ids_dict`. Accepts `breakdown_probs` parameter for scenario-based bridge failures. Includes `record_trip()` and `export_data()` for collecting travel time statistics.
 
-  In this file, you modify the model generation and add your own routines.
+- [components.py](components.py): Contains agent definitions:
+  - **Infra** — base class for all infrastructure (length, position, vehicle count)
+  - **Bridge** — breaks down based on condition probability; delay varies by bridge length
+  - **Link** — passive road segment
+  - **Intersection** — junction connecting different roads (shared IDs)
+  - **Source / Sink / SourceSink** — generate and remove vehicles
+  - **Vehicle** — drives along path at 48 km/h, waits at broken bridges, tracks travel and waiting time
 
-- [components.py](components.py): Contains the model component definitions for the (main) model. Check the file carefully to see which components are already defined.
+- [model_run.py](model_run.py): Experiment runner. Configures 5 scenarios with different bridge breakdown probabilities, runs 10 replications each with different seeds, and exports trip data CSVs.
 
-  In this file, you modify and add your own components.
+- [model_viz.py](model_viz.py): Sets up the browser-based Mesa visualization. Not used during experiments.
 
-- [model_viz.py](model_viz.py): Sets up the visualization; uses the `SimpleCanvas` element defined. Calls the model. Run the visualization server.
+- [mesa_networkx_flowchart.py](mesa_networkx_flowchart.py): Generates the MESA–NetworkX data exchange flowchart diagram. Outputs PNG and PDF to `../img/`.
 
-  In this file, you define simple visualization.
-
-- [model_run.py](model_run.py): Sets up the model run (conditions). Calls the model. Run the simulation without visualization.
-
-  In this file, you define model batch runs.
-
-- [ContinuousSpace](ContinuousSpace): The directory contains files needed to visualize Python3 Mesa models on a continuous canvas with geo-coordinates, a functionality not contained in the current Mesa package.
-
-  Editing files in this directory is NOT recommended for our assignment.
-
-- [ContinuousSpace/SimpleContinuousModule.py](ContinuousSpace/SimpleContinuousModule.py): Defines `SimpleCanvas`, the Python side of a custom visualization module for drawing objects with continuous positions. This is a slight adaptation of the Flocker example provided by the Mesa project.
-
-  Editing this file is NOT recommended for our assignment.
-
-- [ContinuousSpace/simple_continuous_canvas.js](ContinuousSpace/simple_continuous_canvas.js): JavaScript side of the `SimpleCanvas` visualization module. It takes the output generated by the Python `SimpleCanvas` element and draws it in the browser window via HTML5 canvas. It can draw circles and rectangles. Both can have text annotation. This file is an adaptation of the Flocker example provided by the Mesa project.
-
-  Editing this file is NOT recommended for our assignment.
+- [ContinuousSpace](ContinuousSpace): Custom visualization module for continuous canvas with geographic coordinates. Editing NOT recommended.
