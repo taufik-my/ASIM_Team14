@@ -63,10 +63,18 @@ class Bridge(Infra):
         self.broken_down = False
         self.total_delay_caused = 0
         self.vehicles_delayed = 0
+        self.trucks_crossed = 0  # A4: count total trucks passing through this bridge
 
-        # determine if this bridge breaks down based on condition probability
-        breakdown_probs = getattr(model, 'breakdown_probs', {})
-        prob = breakdown_probs.get(self.condition, 0)
+        # A4: use per-bridge vulnerability probability if available,
+        # otherwise fall back to condition-based probability (A3 behavior)
+        vuln_data = getattr(model, 'vulnerability_data', {})
+        if unique_id in vuln_data:
+            prob = vuln_data[unique_id]
+        else:
+            breakdown_probs = getattr(model, 'breakdown_probs', {})
+            prob = breakdown_probs.get(self.condition, 0)
+
+        self.failure_prob = prob  # A4: store for analysis/export
         if prob > 0 and self.random.random() < prob:
             self.broken_down = True
 
@@ -146,6 +154,23 @@ class Source(Infra):
     truck_counter = 0
     generation_frequency = 5
     vehicle_generated_flag = False
+
+    def __init__(self, unique_id, model, length=0,
+                 name='Unknown', road_name='Unknown'):
+        super().__init__(unique_id, model, length, name, road_name)
+        # A4: per-source generation frequency from AADT data (if available)
+        # Falls back to class default (5) if no data provided
+        aadt_data = getattr(model, 'aadt_data', {})
+        if unique_id in aadt_data:
+            truck_aadt = aadt_data[unique_id]
+            if truck_aadt > 0:
+                # truck_aadt = trucks per day per direction
+                # 1 day = 1440 min = 1440 ticks
+                self.generation_frequency = max(1, int(1440 / truck_aadt))
+            else:
+                self.generation_frequency = Source.generation_frequency
+        else:
+            self.generation_frequency = Source.generation_frequency
 
     def step(self):
         if self.model.schedule.steps % self.generation_frequency == 0:
@@ -259,6 +284,11 @@ class Vehicle(Agent):
         Set the origin destination path of the vehicle
         """
         self.path_ids = self.model.get_route(self.generated_by.unique_id)
+        # A4: if no route exists, truck is stranded
+        if self.path_ids is None:
+            self.removed_at_step = self.model.schedule.steps
+            self.model.record_stranded(self)
+            self.model.schedule.remove(self)
 
     def step(self):
         """
@@ -305,6 +335,7 @@ class Vehicle(Agent):
             self.location.remove(self)
             return
         elif isinstance(next_infra, Bridge):
+            next_infra.trucks_crossed += 1  # A4: count every truck passing this bridge
             self.bridges_passed += 1
             delay = next_infra.get_delay_time()
             self.waiting_time = delay
