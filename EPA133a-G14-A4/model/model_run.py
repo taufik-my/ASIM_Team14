@@ -49,12 +49,12 @@ OUTPUT_DIR = '../experiment'
 
 def load_aadt_data():
     """Load AADT data for per-source truck generation.
-    Uses (heavy + medium trucks) / 2 for per-direction truck count."""
+    Uses (small + medium + heavy trucks) / 2 for per-direction truck count."""
     df = pd.read_csv('../data/integrated_data.csv')
     ss = df[df['model_type'].str.strip() == 'sourcesink']
     aadt_dict = {}
     for _, row in ss.iterrows():
-        aadt_dict[row['id']] = (row['medium_truck'] + row['heavy_truck']) / 2
+        aadt_dict[row['id']] = (row['small_truck'] + row['medium_truck'] + row['heavy_truck']) / 2
     return aadt_dict
 
 
@@ -181,7 +181,7 @@ def run_round1():
     bc_max = ranking_df['betweenness'].max()
     ranking_df['norm_traffic'] = ranking_df['avg_trucks_crossed'] / tc_max if tc_max > 0 else 0
     ranking_df['norm_betweenness'] = ranking_df['betweenness'] / bc_max if bc_max > 0 else 0
-    ranking_df['combined_score'] = 0.5 * ranking_df['norm_traffic'] + 0.5 * ranking_df['norm_betweenness']
+    ranking_df['combined_score'] = 0.7 * ranking_df['norm_traffic'] + 0.3 * ranking_df['norm_betweenness']
 
     # A4: add rank columns so we can compare different ranking strategies
     ranking_df['rank_by_traffic'] = ranking_df['avg_trucks_crossed'].rank(ascending=False).astype(int)
