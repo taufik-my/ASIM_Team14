@@ -59,7 +59,8 @@ class BangladeshModel(Model):
     file_name = '../data/network_data.csv'
 
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0,
-                 breakdown_probs=None, vulnerability_data=None, aadt_data=None):
+                 breakdown_probs=None, vulnerability_data=None, aadt_data=None,
+                 run_length=7200):
 
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -89,6 +90,9 @@ class BangladeshModel(Model):
         # A4: store removed bridges for restoration (Round 2 experiments)
         self.removed_bridges = {}
         self.stranded_count = 0
+
+        # A4: simulation window — bridges draw their failure tick from [0, run_length)
+        self.run_length = run_length
 
         self.generate_model()
 
@@ -392,7 +396,8 @@ class BangladeshModel(Model):
             'road': b.road_name,
             'condition': b.condition,
             'length': b.length,
-            'failure_prob': b.failure_prob,  # A4: per-bridge vulnerability probability
+            'failure_prob': b.failure_prob,
+            'failure_tick': b.failure_tick,   # A4: tick at which bridge fails (None if never)
             'broken_down': b.broken_down,
             'total_delay_min': b.total_delay_caused,
             'vehicles_delayed': b.vehicles_delayed,

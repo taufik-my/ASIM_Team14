@@ -1,15 +1,23 @@
 """
     A4: Run simulation experiments for vulnerability and criticality analysis.
 
-    Round 1: Baseline — all bridges functional, AADT-calibrated traffic
-    Round 2: Bridge removal — remove top bridges one-by-one (criticality)
+    Round 1: Baseline — all bridges functional, AADT-calibrated traffic.
+             Ranks bridges by traffic volume + betweenness centrality.
+
+    Round 2: Connectivity loss — for every bridge in the network, remove it
+             and count how many origin-destination pairs lose all viable routes.
+             Produces a full criticality ranking for all 737 bridges in minutes.
+             (Jenelius et al. 2006; Jafino et al. 2020; Cats & Jenelius 2020)
+
     Round 3: Stochastic failure — disaster-weighted probabilities (vulnerability)
+             across four seasonal scenarios using the vulnerability index.
 
     Round 4 is pure data analysis (done in notebooks, not here).
+    Combines Round 2 criticality + Round 3 vulnerability into a priority matrix.
 
     Usage:
         python model_run.py round1          # Run Round 1 only
-        python model_run.py round2          # Run Round 2 only (needs Round 1 results)
+        python model_run.py round2          # Run Round 2 only
         python model_run.py round3          # Run Round 3 only
         python model_run.py all             # Run all rounds sequentially
         python model_run.py                 # Same as 'all'
@@ -38,8 +46,19 @@ NUM_REPLICATIONS = 10
 SEEDS = [1234567, 2345678, 3456789, 4567890, 5678901,
          6789012, 7890123, 8901234, 9012345, 1357924]
 
-# A4: Number of top bridges to test in Round 2
+# A4: Number of top bridges to identify from Round 1 (by traffic + betweenness)
 TOP_N_BRIDGES = 20
+
+# A4: Failure probability bounds for Round 3 stochastic failure.
+# The Vulnerability Index (VI) is a composite index in [0, 1] — not a calibrated
+# failure probability. Using it directly overestimates failure rates (e.g., VI=0.75
+# would imply 75% chance of failure per 5-day run, which is unrealistic).
+# We instead rescale VI linearly to [FAILURE_PROB_MIN, FAILURE_PROB_MAX]:
+#   prob = FAILURE_PROB_MIN + VI * (FAILURE_PROB_MAX - FAILURE_PROB_MIN)
+# This preserves relative ordering between bridges while producing realistic rates.
+# Bounds are based on engineering judgment for Bangladesh flood season failure rates.
+FAILURE_PROB_MIN = 0.02   # least vulnerable bridge: ~2% per simulation window
+FAILURE_PROB_MAX = 0.50   # most vulnerable bridge: ~50% per simulation window
 
 OUTPUT_DIR = '../experiment'
 
@@ -59,12 +78,21 @@ def load_aadt_data():
 
 
 def load_vulnerability_data(season='overall'):
-    """Load per-bridge vulnerability probabilities.
+    """Load per-bridge failure probabilities, rescaled from the Vulnerability Index.
+
+    The VI is a composite index in [0, 1] representing relative bridge vulnerability
+    — it is not a calibrated failure probability. We apply a linear rescaling:
+
+        prob = FAILURE_PROB_MIN + VI * (FAILURE_PROB_MAX - FAILURE_PROB_MIN)
+
+    This maps VI=0 (no vulnerability) to FAILURE_PROB_MIN and VI=1 (maximum
+    vulnerability) to FAILURE_PROB_MAX, preserving relative bridge ordering while
+    producing realistic per-simulation failure rates.
 
     Args:
-        season: 'overall', 'dry_season', 'pre_monsoon', or 'post_monsoon'
+        season: 'overall' (monsoon peak), 'dry_season', 'pre_monsoon', 'post_monsoon'
     Returns:
-        dict mapping bridge_id -> failure probability
+        dict mapping bridge_id -> calibrated failure probability
     """
     vi = pd.read_csv('../data/vulnerability_index.csv')
     col_map = {
@@ -74,7 +102,10 @@ def load_vulnerability_data(season='overall'):
         'post_monsoon': 'VI_post_monsoon',
     }
     col = col_map.get(season, 'Vulnerability index')
-    return dict(zip(vi['id'], vi[col]))
+
+    # Rescale VI index to failure probability using configured bounds
+    prob = FAILURE_PROB_MIN + vi[col] * (FAILURE_PROB_MAX - FAILURE_PROB_MIN)
+    return dict(zip(vi['id'], prob))
 
 
 # ---------------------------------------------------------------
@@ -99,6 +130,7 @@ def run_single(seed, run_length, aadt_data=None, vulnerability_data=None,
         aadt_data=aadt_data,
         vulnerability_data=vulnerability_data,
         breakdown_probs=breakdown_probs,
+        run_length=run_length,
     )
 
     # A4: remove a specific bridge for criticality testing (Round 2)
@@ -215,98 +247,113 @@ def run_round1():
 # ---------------------------------------------------------------
 
 def run_round2():
-    """Round 2: Remove top bridges one-by-one, measure criticality.
-    Requires Round 1 results (top_bridges.csv, trips.csv)."""
+    """Round 2: Connectivity loss criticality analysis for all 737 bridges.
+
+    For each bridge in the network, removes it from the graph and counts how
+    many origin-destination pairs lose all viable routes (broken_pairs).
+    Bridges that sever the most OD connections are the most critical.
+
+    This approach is appropriate for the near-linear N1/N2 corridor where
+    ~98% of nodes are articulation points and alternative routes are scarce,
+    meaning bridge removal typically severs connectivity rather than merely
+    adding delay (Cats & Jenelius, 2020).
+
+    Runs in minutes rather than hours, covering all bridges rather than a
+    small subset, and produces a criticality ranking directly suitable for
+    the Round 4 priority matrix.
+
+    References:
+        Jenelius, Petersen & Mattsson (2006), Transport. Res. Part A, 40(7)
+        Jafino, Kwakkel & Verbraeck (2020), Transport Reviews, 40(2)
+        Cats & Jenelius (2020), Transport. Res. Part A, 143
+    """
     aadt_data = load_aadt_data()
     output_dir = os.path.join(OUTPUT_DIR, 'round2_bridge_removal')
     os.makedirs(output_dir, exist_ok=True)
 
-    # Load Round 1 results
-    r1_dir = os.path.join(OUTPUT_DIR, 'round1_baseline')
-    if not os.path.exists(os.path.join(r1_dir, 'top_bridges.csv')):
-        print('ERROR: Round 1 results not found. Run round1 first.')
-        return
-
-    top_bridges_df = pd.read_csv(os.path.join(r1_dir, 'top_bridges.csv'))
-    top_bridge_ids = top_bridges_df['bridge_id'].head(TOP_N_BRIDGES).tolist()
-    baseline_trips = pd.read_csv(os.path.join(r1_dir, 'trips.csv'))
-
-    # A4: compute baseline mean travel per seed (for per-seed Δ comparison)
-    baseline_completed = baseline_trips[baseline_trips['dest_road'] != 'stranded']
-    baseline_per_seed = baseline_completed.groupby('seed')['travel_time'].mean()
-    baseline_mean_travel = baseline_completed['travel_time'].mean()
-
     print(f'\n{"="*60}')
-    print(f'ROUND 2: Bridge Removal ({len(top_bridge_ids)} bridges x '
-          f'{NUM_REPLICATIONS} reps)')
-    print(f'{"="*60}')
-    print(f'  Baseline mean travel: {baseline_mean_travel:.1f} min')
-    print(f'  Estimated time: ~{len(top_bridge_ids) * NUM_REPLICATIONS * 80 / 60:.0f} min')
-    print(flush=True)
+    print('ROUND 2: Connectivity Loss (all bridges)')
+    print(f'{"="*60}', flush=True)
+
+    # Build the model once to obtain the NetworkX graph and node lists.
+    # No simulation is run — only the graph structure is needed.
+    print('  Building model graph...', flush=True)
+    model = BangladeshModel(seed=SEEDS[0], aadt_data=aadt_data)
+    G = model.G
+
+    # All source and sink node IDs (SourceSink nodes act as both).
+    # These are the origin-destination endpoints trucks travel between.
+    od_nodes = list(set(model.sources) | set(model.sinks))
+    od_pairs = [(s, t) for s in od_nodes for t in od_nodes if s != t]
+
+    # Load bridge metadata for output enrichment
+    net_df = pd.read_csv('../data/network_data.csv')
+    bridge_meta = net_df[net_df['model_type'] == 'bridge'][['id', 'road', 'name']].copy()
+    bridge_meta['id'] = bridge_meta['id'].astype(int)
+
+    # All bridge node IDs present in the graph
+    bridge_ids = [b for b in bridge_meta['id'].tolist() if b in G]
+
+    print(f'  OD nodes: {len(od_nodes)}  |  OD pairs: {len(od_pairs)}  '
+          f'|  Bridges to test: {len(bridge_ids)}', flush=True)
+
+    # Baseline: which OD pairs are connected on the intact network?
+    baseline_connected = {(s, t) for s, t in od_pairs if nx.has_path(G, s, t)}
+    print(f'  Baseline connected pairs: {len(baseline_connected)} / {len(od_pairs)}',
+          flush=True)
 
     results = []
+    t_start = time.time()
 
-    for i, bridge_id in enumerate(top_bridge_ids):
-        bridge_start = time.time()
-        all_trips = []
+    for i, bridge_id in enumerate(bridge_ids):
+        # Save incident edges, remove bridge node, test connectivity, restore
+        saved_edges = list(G.edges(bridge_id, data=True))
+        G.remove_node(bridge_id)
 
-        for rep in range(NUM_REPLICATIONS):
-            seed = SEEDS[rep]
-            t0 = time.time()
+        broken = sum(
+            1 for s, t in baseline_connected
+            if s in G and t in G and not nx.has_path(G, s, t)
+        )
 
-            df_trips, model = run_single(
-                seed, RUN_LENGTH,
-                aadt_data=aadt_data,
-                remove_bridge_id=bridge_id,
-            )
-            df_trips['replication'] = rep + 1
-            df_trips['seed'] = seed
-            df_trips['removed_bridge'] = bridge_id
-            all_trips.append(df_trips)
-
-            elapsed = time.time() - t0
-            print(f'    Rep {rep+1}/{NUM_REPLICATIONS} (seed={seed}): '
-                  f'{len(df_trips)} trips ({elapsed:.1f}s)', flush=True)
-
-        df_bridge_trips = pd.concat(all_trips, ignore_index=True)
-
-        # A4: compute per-seed Δ travel time for mean ± std
-        completed = df_bridge_trips[df_bridge_trips['dest_road'] != 'stranded']
-        stranded = df_bridge_trips[df_bridge_trips['dest_road'] == 'stranded']
-
-        removal_per_seed = completed.groupby('seed')['travel_time'].mean()
-        delta_per_seed = removal_per_seed - baseline_per_seed
-        delta_per_seed = delta_per_seed.dropna()
-
-        mean_delta = delta_per_seed.mean() if len(delta_per_seed) > 0 else float('inf')
-        std_delta = delta_per_seed.std() if len(delta_per_seed) > 1 else 0
-        total_stranded = len(stranded)
+        G.add_node(bridge_id)
+        G.add_edges_from(saved_edges)
 
         results.append({
             'bridge_id': bridge_id,
-            'mean_travel_time': completed['travel_time'].mean() if len(completed) > 0 else float('inf'),
-            'delta_travel_time': mean_delta,
-            'delta_std': std_delta,
-            'total_stranded': total_stranded,
-            'completed_trips': len(completed),
+            'broken_pairs': broken,
+            'broken_pct': round(100 * broken / len(baseline_connected), 2)
+            if baseline_connected else 0,
         })
 
-        bridge_elapsed = time.time() - bridge_start
-        remaining = (len(top_bridge_ids) - i - 1) * bridge_elapsed
-        print(f'  [{i+1}/{len(top_bridge_ids)}] Bridge {bridge_id}: '
-              f'Δ travel={mean_delta:+.1f} ± {std_delta:.1f} min, '
-              f'stranded={total_stranded} '
-              f'({bridge_elapsed/60:.1f} min, '
-              f'~{remaining/60:.0f} min remaining)', flush=True)
+        if (i + 1) % 50 == 0 or (i + 1) == len(bridge_ids):
+            elapsed = time.time() - t_start
+            print(f'  [{i+1}/{len(bridge_ids)}] ({elapsed:.0f}s elapsed)',
+                  flush=True)
 
-        # A4: save after each bridge so progress isn't lost
-        df_results = pd.DataFrame(results)
-        df_results = df_results.sort_values('delta_travel_time', ascending=False)
-        df_results.to_csv(os.path.join(output_dir, 'criticality_scores.csv'), index=False)
+    # Merge with Round 1 ranking scores for a combined output
+    df_results = pd.DataFrame(results)
+    df_results = df_results.merge(bridge_meta, left_on='bridge_id',
+                                  right_on='id', how='left').drop(columns='id')
 
-    print(f'\n  -> Saved to {output_dir}/criticality_scores.csv')
-    print(f'  -> Most critical: bridge {df_results.iloc[0]["bridge_id"]:.0f} '
-          f'(Δ={df_results.iloc[0]["delta_travel_time"]:+.1f} min)', flush=True)
+    r1_ranking = pd.read_csv(
+        os.path.join(OUTPUT_DIR, 'round1_baseline', 'bridge_ranking.csv'),
+        usecols=['bridge_id', 'avg_trucks_crossed', 'betweenness', 'combined_score'],
+    )
+    df_results = df_results.merge(r1_ranking, on='bridge_id', how='left')
+
+    df_results = df_results.sort_values('broken_pairs', ascending=False)
+    df_results['criticality_rank'] = range(1, len(df_results) + 1)
+
+    df_results.to_csv(os.path.join(output_dir, 'criticality_scores.csv'), index=False)
+
+    elapsed = time.time() - t_start
+    top = df_results.iloc[0]
+    print(f'\n  Completed in {elapsed:.0f}s')
+    print(f'  -> Saved to {output_dir}/criticality_scores.csv')
+    print(f'  -> Most critical: bridge {int(top["bridge_id"])} '
+          f'({top["road"]}, {top["name"]}) — '
+          f'{int(top["broken_pairs"])} broken pairs '
+          f'({top["broken_pct"]:.1f}%)', flush=True)
 
 
 # ---------------------------------------------------------------

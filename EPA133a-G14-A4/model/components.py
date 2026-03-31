@@ -74,9 +74,22 @@ class Bridge(Infra):
             breakdown_probs = getattr(model, 'breakdown_probs', {})
             prob = breakdown_probs.get(self.condition, 0)
 
-        self.failure_prob = prob  # A4: store for analysis/export
+        self.failure_prob = prob
+
+        # A4: dynamic failure — bridge fails at a random tick during the simulation
+        # rather than being broken from tick 0. The overall probability of failure
+        # within the simulation window is still equal to `prob` (i.e. the VI score).
+        # This better reflects real-world failure during a hazard event (e.g. a flood
+        # peak occurring mid-season) rather than a pre-existing broken state.
+        self.failure_tick = None
         if prob > 0 and self.random.random() < prob:
-            self.broken_down = True
+            self.failure_tick = self.random.randint(0, model.run_length - 1)
+
+    def step(self):
+        """Trigger failure when the simulation reaches this bridge's failure tick."""
+        if self.failure_tick is not None and not self.broken_down:
+            if self.model.schedule.steps >= self.failure_tick:
+                self.broken_down = True
 
     def get_delay_time(self):
         """
