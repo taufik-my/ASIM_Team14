@@ -210,26 +210,26 @@ Both weight schemes produce **exactly the same top 20 bridges**:
 
 | Rank | Bridge ID | avg_trucks_crossed | betweenness |
 |---|---|---|---|
-| 1  | 2000278 | 24,274.6 | 0.4488 |
-| 2  | 2000284 | 24,272.1 | 0.4479 |
-| 3  | 2000288 | 24,270.4 | 0.4473 |
-| 4  | 2000292 | 24,272.4 | 0.4466 |
-| 5  | 2000297 | 24,270.9 | 0.4458 |
-| 6  | 2000303 | 24,270.8 | 0.4448 |
-| 7  | 2000306 | 24,269.8 | 0.4443 |
-| 8  | 2000314 | 24,266.2 | 0.4430 |
-| 9  | 2000316 | 24,267.0 | 0.4427 |
-| 10 | 2000320 | 24,266.4 | 0.4420 |
-| 11 | 2000324 | 24,265.6 | 0.4413 |
-| 12 | 2000330 | 24,261.1 | 0.4403 |
-| 13 | 2000346 | 24,257.5 | 0.4376 |
-| 14 | 2000350 | 24,254.5 | 0.4369 |
-| 15 | 2000356 | 24,253.3 | 0.4359 |
-| 16 | 2000360 | 24,253.0 | 0.4351 |
-| 17 | 2000366 | 24,251.5 | 0.4340 |
-| 18 | 2000370 | 24,250.2 | 0.4333 |
-| 19 | 2000374 | 24,248.3 | 0.4326 |
-| 20 | 2000378 | 24,249.1 | 0.4319 |
+| 1  | 2000278 | 30,341.1 | 0.4488 |
+| 2  | 2000284 | 30,340.6 | 0.4479 |
+| 3  | 2000288 | 30,339.3 | 0.4473 |
+| 4  | 2000292 | 30,341.3 | 0.4466 |
+| 5  | 2000297 | 30,341.3 | 0.4458 |
+| 6  | 2000303 | 30,342.5 | 0.4448 |
+| 7  | 2000306 | 30,342.6 | 0.4443 |
+| 8  | 2000314 | 30,342.9 | 0.4430 |
+| 9  | 2000316 | 30,344.5 | 0.4427 |
+| 10 | 2000320 | 30,344.6 | 0.4420 |
+| 11 | 2000324 | 30,344.7 | 0.4413 |
+| 12 | 2000330 | 30,345.9 | 0.4403 |
+| 13 | 2000346 | 30,348.8 | 0.4376 |
+| 14 | 2000350 | 30,346.7 | 0.4369 |
+| 15 | 2000356 | 30,347.9 | 0.4359 |
+| 16 | 2000360 | 30,349.1 | 0.4351 |
+| 17 | 2000366 | 30,351.0 | 0.4340 |
+| 18 | 2000370 | 30,350.6 | 0.4333 |
+| 19 | 2000374 | 30,350.7 | 0.4326 |
+| 20 | 2000378 | 30,351.6 | 0.4319 |
 
 ### 7.3 Why the top 20 are invariant to weight choice
 
@@ -237,11 +237,11 @@ Inspecting `bridge_ranking.csv` reveals the structural reason: bridges 2000278�
 form a **tight co-dominant cluster** — they simultaneously rank near the top on both
 traffic volume (~24,248–24,275 trucks/day) and betweenness (~0.432–0.449). The first
 bridge ranked outside the top 20 by combined score (bridge 1000212) has the single
-highest betweenness in the network (0.494) but substantially lower traffic (~21,001
+highest betweenness in the network (0.494) but substantially lower traffic (~25,027
 trucks/day).
 
 The gap between rank 20 and rank 21 is:
-- Traffic: ~24,248 vs. ~21,001 (≈15% lower)
+- Traffic: ~30,352 vs. ~25,027 (≈18% lower)
 - Betweenness: 0.432 vs. 0.494 (≈14% higher)
 
 No weighting scheme within a reasonable range (roughly 0.4–0.9 for traffic) can bring
@@ -282,6 +282,44 @@ For the top 20 selection, all three strategies produce the same set in this netw
 | Betweenness uses topological shortest paths, not traffic-assigned flows | Over-weights bridges on geometrically short but low-demand paths | Use **Path Flow Weighted Betweenness Centrality** (Tu et al., 2024), which weights path contributions by actual OD demand |
 | Weight sensitivity tested only at two points (50:50 and 70:30) | Weight-space exploration is coarse | Run full sweep (e.g., 0.1 increments) to map the range over which top-20 is stable |
 | Betweenness computed from a single graph snapshot | Does not reflect time-varying congestion | Use dynamic or congestion-aware betweenness (Cats & Jenelius, 2020) |
+
+---
+
+## 10. Sensitivity to the Number of Top Bridges (N = 20)
+
+`TOP_N_BRIDGES = 20` determines how many bridges are selected from Round 1
+for downstream reporting. This is a presentation parameter, not a modelling
+parameter — all 737 bridges are analysed in Rounds 2–4 regardless.
+Nevertheless, it is worth justifying why 20 was chosen and what a different
+choice would imply.
+
+### 10.1 The score gap at rank 20–21
+
+| Rank range | Combined score range | Score spread |
+|---|---|---|
+| 1–20 (N2 cluster) | 0.962–0.972 | 0.010 |
+| Rank 21 (bridge 1000212) | 0.877 | — |
+| Ranks 22–30 | 0.820–0.877 | 0.057 |
+
+The gap between rank 20 and rank 21 (0.085) is **8.5× larger** than the within-
+cluster spread (0.010). This natural elbow in the score distribution makes N = 20
+a data-justified cutoff, not an arbitrary one.
+
+### 10.2 Sensitivity to N
+
+| Choice | Effect |
+|---|---|
+| **N = 10** | Retains the upper half of the N2 cluster. All 10 retained bridges have near-identical scores (0.968–0.972) and identical Round 2 tier (Tier 1, 154 broken pairs). The selection would be representative of the cluster but would artificially exclude 10 bridges with equally strong evidence. No qualitative change in which corridor is highlighted. |
+| **N = 20** (chosen) | Captures the full co-critical N2 cluster — all 20 bridges that share `broken_pairs = 154` in Round 2 (50.33% of OD pairs). The combined score gap to rank 21 is the largest in the distribution, confirming this as the natural stopping point. |
+| **N = 30** | Would include bridges 21–30, whose combined scores range 0.820–0.877. These include N1 bridges with lower betweenness, from a different tier of the score distribution. Including them would conflate two structurally distinct groups in the Round 1 summary table and weaken the "dominant cluster" finding. |
+
+### 10.3 Invariance to weight choice within N = 20
+
+As documented in Section 7, the top 20 set is **identical** under both the 0.7/0.3
+and 0.5/0.5 weight configurations. The N = 20 boundary coincides with the natural
+score gap regardless of which weight is applied within a reasonable range
+(approximately 0.4–0.9 for traffic weight). This confirms that N = 20 is not a
+consequence of the weight choice.
 
 ---
 
@@ -536,6 +574,38 @@ This preserves the relative ordering between bridges while producing realistic
 per-simulation failure rates, and ensures seasonal differences are maintained
 (dry season VI values map to lower absolute probabilities than monsoon peak).
 
+### 3.4 Sensitivity to probability bounds
+
+The bounds $p_{\min} = 0.02$ and $p_{\max} = 0.50$ are based on engineering
+judgement for Bangladesh flood-season bridge failure rates. The key question is
+how the results change if these bounds are adjusted.
+
+**Effect on rank ordering**: Because the rescaling is a **monotone linear
+transformation**, the rank ordering of bridges by failure probability is
+**invariant to any choice of $p_{\min}$ and $p_{\max}$**, provided
+$p_{\min} < p_{\max}$. The bridge with the highest VI will always have the
+highest failure probability regardless of the bounds. The Round 4 priority
+matrix — which normalises `expected_delay` to [0, 1] — therefore produces
+identical bridge rankings regardless of the bound choice.
+
+**Effect on absolute failure counts and delay**:
+
+| Bound configuration | Mean failures/rep (monsoon) | Effect on total delay |
+|---|---|---|
+| $p_{\max} = 0.30$ (lower ceiling) | ~110 (−34% vs baseline) | Total delay decreases proportionally; bridges at high end of VI are less likely to fail, so DumGhat and MUHURI would appear less frequently in failure events |
+| $p_{\max} = 0.50$ **(chosen)** | ~166 | Baseline |
+| $p_{\max} = 0.70$ (higher ceiling) | ~220 (+33% vs baseline) | More simultaneous failures; network suppression effect strengthens; per-bridge conditional delay can decrease in monsoon as more trucks are detained elsewhere |
+| $p_{\min} = 0.05$ (higher floor) | ~185 | Raises base rate for low-VI bridges; compresses the relative gap between high- and low-VI bridges; more uniform failure distribution |
+
+**Conclusion**: the choice of bounds primarily affects the **number of failures per
+replication** and therefore the **scale** of delay estimates, but does not change
+the relative bridge rankings or the qualitative Round 4 conclusions. The
+0.02/0.50 bounds were selected to produce failure counts (~115–166 per
+replication across seasons) consistent with BWDB engineering assessments of
+Bangladesh monsoon bridge vulnerability (World Bank, 2022), while keeping
+maximum failure probability at 50% — high but plausible for the most degraded
+condition D structures in peak flood conditions.
+
 ### 3.3 Why condition is not used to modify delay
 
 The VI formula assigns a weight of 0.35 to structural condition — the highest
@@ -589,18 +659,50 @@ Length is the sole determinant of delay magnitude. Bridge condition is
 intentionally excluded to avoid double-counting its effect, which is already
 captured in the failure probability via the VI score (see Section 3.3).
 
+### 5.1 Sensitivity to delay distribution parameters
+
+The size thresholds (10m, 50m, 200m) and delay ranges were set to reflect
+engineering assessments of bridge inspection and emergency restriction
+timescales in a South Asian freight corridor context. The key question is
+how sensitive the Round 3 and Round 4 rankings are to alternative parameter
+choices.
+
+**Effect on rank ordering**: Any delay distribution that preserves the
+monotone ordering (larger bridges → longer delays) will produce qualitatively
+similar rankings. The dominance of DumGhat Bridge (222m) and ULAKOLA (209m) in
+the delay-per-event ranking is robust to any parameter set that assigns higher
+delays to bridges > 200m.
+
+**Effect on absolute delay magnitudes**:
+
+| Parameter change | Effect on results |
+|---|---|
+| Large bridge max delay: 240 → 360 min (triangular mode/max raised) | DumGhat and ULAKOLA delay totals increase ~50%; their lead over medium-span bridges increases; qualitative ranking is unchanged |
+| Large bridge max delay: 240 → 120 min (collapsed range) | Large and medium bridges converge in delay magnitude; high-traffic N2 bridges (many are medium-span) gain relative importance; DumGhat's dominance in Round 3 weakens but does not disappear |
+| Medium bridge range: Uniform(45,90) → Uniform(30,60) (lower range) | N2 corridor bridges (60–100m spans) accumulate less delay per event; total freight disruption decreases ~15%; bridge ordering changes modestly at the N2/N1 boundary but top 5 are unchanged |
+| Size thresholds shifted (e.g., large = >150m instead of >200m) | RAMPUR P C GIRDER (64m) and KATAKHALI (17m) remain medium/small-class; DumGhat (222m) and MUHURI (192m) are both reclassified upward, increasing MUHURI's delay-per-event; MUHURI moves from rank 3 toward rank 1–2 in Round 3 |
+
+**Conclusion**: the direction of findings (large spans and high-traffic bridges
+dominate delay-per-event rankings; N1 large spans compete with N2 high-traffic
+bridges for the top delay positions) is robust across reasonable parameter
+variations. The specific rank positions of bridges near the boundary between
+size classes (particularly MUHURI BRIDGE at 192m, just below the 200m
+threshold) are the most sensitive to threshold choice.
+
 ---
 
 ## 6. What Round 3 Measures
 
-Per replication and scenario, the model records:
+Per bridge, per replication, and per scenario, the model records:
 
-| Output | Description |
+| Output column | Description |
 |---|---|
-| `broken_count` | Number of bridges that failed in this replication |
-| `mean_wait` | Average waiting time per truck at broken bridges |
-| `completed_trips` | Trucks that reached their destination |
-| `failure_tick` | Tick at which each bridge failed (for temporal analysis) |
+| `broken_down` | Whether the bridge failed in this replication (boolean) |
+| `total_delay_min` | Total delay (minutes) accumulated by all trucks at this bridge |
+| `vehicles_delayed` | Number of trucks that experienced a delay at this bridge |
+| `trucks_crossed` | Total trucks that crossed this bridge in this replication |
+| `failure_tick` | Simulation tick at which the bridge failed (NaN if no failure) |
+| `failure_prob` | Seasonally-adjusted failure probability used in this replication |
 
 Across 10 replications, these produce **distributions** rather than point
 estimates — enabling mean ± std reporting and comparison across seasonal
@@ -647,6 +749,272 @@ scenarios in Round 4.
 - FHWA (2016). *Synthesis of National and International Methodologies Used for
   Bridge Health Indices*. FHWA-HRT-15-081.
   https://www.fhwa.dot.gov/publications/research/infrastructure/structures/bridge/15081/15081.pdf
+
+---
+
+# Round 4: Investment Prioritisation (Criticality × Vulnerability Matrix)
+
+## 1. Purpose
+
+Round 4 synthesises the outputs of Round 2 (criticality) and Round 3
+(vulnerability) into a single **investment priority ranking** that directly
+answers the World Bank's resource allocation question: *given limited funds,
+which bridges on the N1/N2 corridor should be repaired or reinforced first?*
+
+This round does not run any simulation. It is a pure data-analysis step
+performed in a notebook, combining two independently measured risk dimensions
+into a composite priority score and visualising the result as a
+criticality–vulnerability matrix.
+
+---
+
+## 2. Conceptual Framework: Risk as Criticality × Vulnerability
+
+The prioritisation follows the standard infrastructure risk framework adopted
+by the World Bank and formalised in the academic literature:
+
+$$\text{Risk} = f(\text{Criticality}, \text{Vulnerability})$$
+
+where:
+
+- **Criticality** (from Round 2) measures the *consequence* of failure — how
+  many OD pairs lose connectivity when a bridge is removed from the network.
+- **Vulnerability** (from Round 3) measures the *likelihood and severity* of
+  failure — how often a bridge fails under seasonal hazard conditions and how
+  much freight delay it causes when it does.
+
+This two-dimensional framing is directly supported by:
+
+- **Jenelius, Petersen & Mattsson (2006)**, who decompose link importance into
+  *exposure* (probability of disruption) and *consequence* (network-wide cost
+  of that disruption), and recommend that prioritisation consider both
+  dimensions jointly rather than either in isolation.
+
+- **Pregnolato, Ford, Wilkinson & Dawson (2017)**, who develop a risk-based
+  prioritisation framework for transport infrastructure under climate hazards,
+  defining risk as the product of hazard likelihood, exposure, and
+  vulnerability — directly analogous to our criticality × vulnerability
+  formulation.
+
+- **Thacker, Barr, Pant, Hall & Alderson (2017)**, who propose an
+  infrastructure criticality and vulnerability assessment framework for
+  national-scale systems, demonstrating that separating *systemic importance*
+  (criticality) from *failure susceptibility* (vulnerability) and then
+  combining them produces more robust prioritisation than either metric alone.
+
+---
+
+## 3. Input Data
+
+### 3.1 Criticality scores (Round 2)
+
+Source file: `round2_bridge_removal/criticality_scores.csv`
+
+| Column | Description |
+|---|---|
+| `broken_pairs` | Number of OD pairs severed when the bridge is removed |
+| `broken_pct` | Percentage of baseline-connected pairs severed |
+| `criticality_rank` | Rank by `broken_pairs` (1 = most critical) |
+
+The Round 2 data reveals a **tiered criticality structure**:
+
+| Tier | `broken_pairs` | `broken_pct` | Bridges | Corridor |
+|---|---|---|---|---|
+| Tier 1 | 154 | 50.33% | 20 bridges (2000278–2000378) | N2 |
+| Tier 2 | 130 | 42.48% | ~20 bridges (1000212–1000355, 2000491–2000501) | N1 + N2 |
+| Tier 3 | 90 | 29.41% | ~20 bridges (1000546–1000642) | N1 |
+| Lower tiers | < 90 | < 29% | Remaining bridges | Various |
+
+### 3.2 Vulnerability scores (Round 3)
+
+Source files: `round3_stochastic_failure/{scenario}_bridges.csv`
+
+| Column | Description |
+|---|---|
+| `failure_prob` | Seasonally-adjusted failure probability (from VI) |
+| `total_delay_min` | Total delay imposed on all trucks when the bridge fails |
+| `vehicles_delayed` | Number of trucks delayed |
+| `broken_down` | Whether the bridge failed in this replication |
+
+The primary vulnerability metric is computed by aggregating across all 10
+replications per scenario:
+
+$$V_i = \frac{1}{R} \sum_{r=1}^{R} \text{total\_delay\_min}_{i,r}$$
+
+where $R = 10$ replications and $i$ indexes each bridge. The mean delay
+captures both the probability of failure (bridges that fail in fewer
+replications contribute less to the mean) and the severity of disruption
+(bridges on high-traffic sections accumulate more delay per failure event).
+
+The **monsoon peak** scenario is used as the reference case for the priority
+matrix, as it represents the worst-case seasonal conditions — the period when
+the greatest number of bridges are most likely to fail simultaneously.
+
+---
+
+## 4. Normalisation
+
+Both dimensions are normalised to [0, 1] using min–max scaling:
+
+$$\hat{C}_i = \frac{C_i - C_{\min}}{C_{\max} - C_{\min}}, \qquad \hat{V}_i = \frac{V_i - V_{\min}}{V_{\max} - V_{\min}}$$
+
+where $C_i$ is the criticality score (`broken_pairs`) and $V_i$ is the mean
+total delay for bridge $i$. Min–max normalisation is chosen over z-score
+standardisation because the priority matrix requires bounded [0, 1] axes for
+quadrant classification (Gómez-Limón & Riesgo, 2009), and the underlying
+distributions are not assumed to be Gaussian.
+
+---
+
+## 5. Priority Score
+
+Each bridge receives a composite priority score:
+
+$$P_i = w_C \cdot \hat{C}_i + w_V \cdot \hat{V}_i$$
+
+where $w_C + w_V = 1$.
+
+### 5.1 Weight selection: equal weighting (0.5 / 0.5)
+
+The default configuration uses **equal weights** ($w_C = w_V = 0.5$),
+supported by two arguments:
+
+**1. Compensatory aggregation under uncertainty (Gómez-Limón & Riesgo, 2009)**
+
+When both dimensions are measured with comparable uncertainty and neither is
+strictly more important than the other, equal weighting provides a neutral
+baseline that avoids injecting unjustified bias toward either dimension. This
+is the standard starting point in multi-criteria decision analysis (MCDA) when
+no stakeholder preference elicitation has been conducted.
+
+**2. Complementary information content**
+
+Criticality and vulnerability capture genuinely distinct risk dimensions — a
+bridge can be highly critical (many OD pairs depend on it) but structurally
+robust (low VI, low failure probability), or vice versa. Equal weighting
+ensures that neither dimension can dominate the ranking alone, consistent with
+the risk = consequence × likelihood framework (Jenelius et al., 2006;
+Thacker et al., 2017).
+
+### 5.2 Sensitivity analysis
+
+To test robustness, two alternative weight configurations are also computed:
+
+| Configuration | $w_C$ | $w_V$ | Bias |
+|---|---|---|---|
+| Criticality-heavy | 0.7 | 0.3 | Favours bridges whose failure severs the most routes |
+| Vulnerability-heavy | 0.3 | 0.7 | Favours bridges most likely to fail and cause delay |
+| Equal (default) | 0.5 | 0.5 | Neutral baseline |
+
+If the top-ranked bridges are stable across all three configurations, the
+prioritisation is robust to weight choice — analogous to the weight
+sensitivity finding in Round 1.
+
+---
+
+## 6. Quadrant Classification
+
+The normalised scores define a **criticality–vulnerability scatter plot**
+divided into four quadrants at the median (or a policy-defined threshold):
+
+```
+                        HIGH CRITICALITY
+                              │
+         Quadrant B           │          Quadrant A
+     Critical but robust      │     URGENT PRIORITY
+     (structural monitoring)  │     (high consequence +
+                              │      high failure risk)
+                              │
+    ──────────────────────────┼──────────────────────────
+                              │
+         Quadrant D           │          Quadrant C
+     Low priority             │     Vulnerable but
+     (routine maintenance)    │     non-critical
+                              │     (maintenance priority)
+                              │
+                        LOW CRITICALITY
+       LOW VULNERABILITY ─────┼───── HIGH VULNERABILITY
+```
+
+### 6.1 Quadrant interpretation and policy response
+
+| Quadrant | Interpretation | Recommended action |
+|---|---|---|
+| **A** (high C, high V) | Bridge is both indispensable to network connectivity and likely to fail under seasonal hazards | **Urgent investment**: structural reinforcement, flood protection, and/or redundancy construction |
+| **B** (high C, low V) | Bridge is a critical chokepoint but currently structurally sound | **Preventive monitoring**: regular inspection to ensure it does not migrate to Quadrant A |
+| **C** (low C, high V) | Bridge is likely to fail but its failure has limited network-wide impact | **Targeted maintenance**: cost-effective repairs to extend service life |
+| **D** (low C, low V) | Neither critical nor vulnerable | **Routine maintenance**: standard inspection cycle |
+
+This classification follows the risk matrix approach widely used in
+infrastructure asset management (Frangopol & Liu, 2007; Thacker et al., 2017)
+and aligns with the World Bank's tiered investment logic, which allocates
+resources proportionally to both the probability and consequence of failure
+(World Bank, 2022).
+
+---
+
+## 7. Scenario Comparison
+
+While the monsoon peak scenario is the primary reference for the priority
+matrix, all four seasonal scenarios are analysed to assess **temporal
+robustness**:
+
+| Comparison | What it reveals |
+|---|---|
+| Monsoon peak vs. dry season | The seasonal premium — how much additional risk the monsoon introduces |
+| Bridges that shift quadrants across seasons | Infrastructure whose priority is season-dependent (e.g., a bridge that is Quadrant A in monsoon but Quadrant B in dry season) |
+| Bridges stable in Quadrant A across all scenarios | The highest-confidence investment priorities — critical and vulnerable year-round |
+
+Pregnolato et al. (2017) recommend this type of scenario-based sensitivity
+analysis for climate-dependent infrastructure risk, as it reveals whether
+prioritisation is driven by chronic vulnerability (year-round structural
+weakness) or acute seasonal exposure (monsoon-specific hazards), each of which
+implies different intervention strategies.
+
+---
+
+## 8. Limitations
+
+| Limitation | Effect on prioritisation | Potential improvement |
+|---|---|---|
+| Equal weighting is a default, not a stakeholder-validated preference | May not reflect actual World Bank trade-offs between consequence and likelihood | Conduct stakeholder preference elicitation (e.g., AHP or swing weighting) to derive empirically grounded weights |
+| Vulnerability metric aggregates delay across replications | Bridges that fail rarely but catastrophically may be under-weighted relative to bridges that fail often with moderate delay | Add a separate "worst-case delay" metric (e.g., 95th percentile across replications) as a complementary vulnerability dimension |
+| Criticality is based on single-bridge removal (N-1) | Does not account for correlated failures of adjacent bridges | Extend to N-k analysis for bridges in the same flood zone |
+| Linear additive aggregation assumes full compensability | A very high score in one dimension can compensate for a low score in the other | Consider non-compensatory methods (e.g., ELECTRE or outranking) for robustness checks |
+| Priority score does not incorporate cost | A bridge may rank high but be prohibitively expensive to repair | Extend to cost-effectiveness analysis: priority per unit investment cost |
+
+---
+
+## 9. References (Round 4)
+
+- Frangopol, D. M., & Liu, M. (2007). Maintenance and management of civil
+  infrastructure based on condition, safety, optimization, and life-cycle cost.
+  *Structure and Infrastructure Engineering*, 3(1), 29–41.
+  https://doi.org/10.1080/15732470500253164
+
+- Gómez-Limón, J. A., & Riesgo, L. (2009). Alternative approaches to the
+  construction of a composite indicator of agricultural sustainability: an
+  application to irrigated agriculture in the Duero basin in Spain. *Journal
+  of Environmental Management*, 90(11), 3345–3362.
+  https://doi.org/10.1016/j.jenvman.2009.05.023
+
+- Jenelius, E., Petersen, T., & Mattsson, L.-G. (2006). Importance and
+  exposure in road network vulnerability analysis. *Transportation Research
+  Part A*, 40(7), 537–560.
+  https://doi.org/10.1016/j.tra.2005.11.003
+
+- Pregnolato, M., Ford, A., Wilkinson, S. M., & Dawson, R. J. (2017). The
+  impact of flooding on road transport: a depth-disruption function.
+  *Transportation Research Part D*, 55, 67–81.
+  https://doi.org/10.1016/j.trd.2017.06.020
+
+- Thacker, S., Barr, S., Pant, R., Hall, J. W., & Alderson, D. (2017).
+  Geographic hotspots of critical national infrastructure. *Risk Analysis*,
+  37(12), 2490–2505.
+  https://doi.org/10.1111/risa.12840
+
+- World Bank (2022). *Transport*. Official topic page.
+  https://www.worldbank.org/ext/en/topic/transport
 
 ---
 

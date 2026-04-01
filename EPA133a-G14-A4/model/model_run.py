@@ -12,13 +12,17 @@
     Round 3: Stochastic failure — disaster-weighted probabilities (vulnerability)
              across four seasonal scenarios using the vulnerability index.
 
-    Round 4 is pure data analysis (done in notebooks, not here).
-    Combines Round 2 criticality + Round 3 vulnerability into a priority matrix.
+    Round 4: Data analysis only — no simulation. Aggregates Round 3 outputs,
+             normalises criticality (Round 2) and vulnerability (Round 3), and
+             produces a priority matrix and ranked investment list.
+             Saves intermediate CSVs to round4_combined_analysis/ for the
+             companion notebook (round4_analysis.ipynb).
 
     Usage:
         python model_run.py round1          # Run Round 1 only
         python model_run.py round2          # Run Round 2 only
         python model_run.py round3          # Run Round 3 only
+        python model_run.py round4          # Run Round 4 only
         python model_run.py all             # Run all rounds sequentially
         python model_run.py                 # Same as 'all'
 """
@@ -436,6 +440,184 @@ def run_round3():
 
 
 # ---------------------------------------------------------------
+# Round 4: Priority Matrix (Criticality × Vulnerability)
+# ---------------------------------------------------------------
+
+def run_round4():
+    """Round 4: Investment priority matrix — no simulation.
+
+    Aggregates Round 3 stochastic failure outputs across all replications
+    and scenarios, normalises Round 2 criticality and Round 3 vulnerability
+    to [0, 1], and produces a composite priority score for every bridge.
+
+    Three weight configurations are computed to test sensitivity:
+        - Equal (default):          0.5 criticality + 0.5 vulnerability
+        - Criticality-heavy:        0.7 criticality + 0.3 vulnerability
+        - Vulnerability-heavy:      0.3 criticality + 0.7 vulnerability
+
+    The monsoon peak scenario is used as the primary vulnerability reference,
+    as it represents worst-case seasonal conditions for Bangladesh.
+
+    Outputs saved to round4_combined_analysis/:
+        vulnerability_summary.csv   Per-bridge aggregated Round 3 stats
+                                    for all four seasonal scenarios.
+        priority_matrix.csv         Merged criticality + vulnerability with
+                                    normalised scores, priority ranks, and
+                                    quadrant classification (A/B/C/D).
+
+    The companion notebook round4_analysis.ipynb reads these CSVs for
+    visualisation and narrative interpretation.
+
+    References:
+        Jenelius, Petersen & Mattsson (2006), Transport. Res. Part A, 40(7)
+        Pregnolato, Ford, Wilkinson & Dawson (2017), Transport. Res. Part D, 55
+        Thacker, Barr, Pant, Hall & Alderson (2017), Risk Analysis, 37(12)
+        Frangopol & Liu (2007), Structure and Infrastructure Engineering, 3(1)
+    """
+    output_dir = os.path.join(OUTPUT_DIR, 'round4_combined_analysis')
+    os.makedirs(output_dir, exist_ok=True)
+    r3_dir = os.path.join(OUTPUT_DIR, 'round3_stochastic_failure')
+    r2_path = os.path.join(OUTPUT_DIR, 'round2_bridge_removal', 'criticality_scores.csv')
+
+    print(f'\n{"="*60}')
+    print('ROUND 4: Priority Matrix (Criticality x Vulnerability)')
+    print(f'{"="*60}', flush=True)
+
+    # ------------------------------------------------------------------
+    # Step 1: Aggregate Round 3 outputs across all replications
+    # ------------------------------------------------------------------
+    # Vulnerability metric: expected_delay = mean total_delay_min across ALL
+    # replications (including zero-delay non-failure reps). This naturally
+    # combines failure probability and per-failure severity into one number:
+    #   expected_delay = failure_rate * mean_delay_when_failed
+    # ------------------------------------------------------------------
+    print('\n  Aggregating Round 3 outputs...', flush=True)
+
+    scenarios = ['dry_season', 'pre_monsoon', 'post_monsoon', 'monsoon_peak']
+    vuln_parts = []
+
+    for scenario in scenarios:
+        path = os.path.join(r3_dir, f'{scenario}_bridges.csv')
+        df = pd.read_csv(path)
+
+        agg = df.groupby('bridge_id').agg(
+            name=('name', 'first'),
+            road=('road', 'first'),
+            condition=('condition', 'first'),
+            length=('length', 'first'),
+            failure_prob=('failure_prob', 'first'),
+            failure_rate=('broken_down', 'mean'),
+            expected_delay=('total_delay_min', 'mean'),
+            mean_vehicles_delayed=('vehicles_delayed', 'mean'),
+        ).reset_index()
+
+        # Mean delay conditional on failure (0 if never failed)
+        failed_only = df[df['broken_down']].groupby('bridge_id')['total_delay_min'].mean()
+        agg['mean_delay_when_failed'] = agg['bridge_id'].map(failed_only).fillna(0)
+
+        agg['scenario'] = scenario
+        vuln_parts.append(agg)
+        print(f'    {scenario}: {len(agg)} bridges aggregated', flush=True)
+
+    vuln_all = pd.concat(vuln_parts, ignore_index=True)
+    vuln_all.to_csv(os.path.join(output_dir, 'vulnerability_summary.csv'), index=False)
+    print(f'  -> Saved vulnerability_summary.csv ({len(vuln_all)} rows)', flush=True)
+
+    # ------------------------------------------------------------------
+    # Step 2: Load Round 2 criticality scores
+    # ------------------------------------------------------------------
+    print('\n  Loading Round 2 criticality scores...', flush=True)
+    r2 = pd.read_csv(r2_path, usecols=[
+        'bridge_id', 'broken_pairs', 'broken_pct',
+        'road', 'name', 'combined_score', 'criticality_rank',
+    ])
+    print(f'    {len(r2)} bridges loaded', flush=True)
+
+    # ------------------------------------------------------------------
+    # Step 3: Build priority matrix using monsoon_peak as reference
+    # ------------------------------------------------------------------
+    print('\n  Building priority matrix (monsoon_peak reference)...', flush=True)
+
+    vuln_monsoon = vuln_all[vuln_all['scenario'] == 'monsoon_peak'][[
+        'bridge_id', 'failure_rate', 'expected_delay',
+        'mean_delay_when_failed', 'mean_vehicles_delayed',
+    ]].copy()
+
+    priority = r2.merge(vuln_monsoon, on='bridge_id', how='left')
+    priority['failure_rate'] = priority['failure_rate'].fillna(0)
+    priority['expected_delay'] = priority['expected_delay'].fillna(0)
+    priority['mean_delay_when_failed'] = priority['mean_delay_when_failed'].fillna(0)
+    priority['mean_vehicles_delayed'] = priority['mean_vehicles_delayed'].fillna(0)
+
+    # Min-max normalise both dimensions to [0, 1]
+    c_min, c_max = priority['broken_pairs'].min(), priority['broken_pairs'].max()
+    v_min, v_max = priority['expected_delay'].min(), priority['expected_delay'].max()
+
+    priority['norm_criticality'] = (
+        (priority['broken_pairs'] - c_min) / (c_max - c_min)
+        if c_max > c_min else 0
+    )
+    priority['norm_vulnerability'] = (
+        (priority['expected_delay'] - v_min) / (v_max - v_min)
+        if v_max > v_min else 0
+    )
+
+    # Three weight configurations for sensitivity analysis
+    priority['priority_equal']      = (0.5 * priority['norm_criticality']
+                                       + 0.5 * priority['norm_vulnerability'])
+    priority['priority_crit_heavy'] = (0.7 * priority['norm_criticality']
+                                       + 0.3 * priority['norm_vulnerability'])
+    priority['priority_vuln_heavy'] = (0.3 * priority['norm_criticality']
+                                       + 0.7 * priority['norm_vulnerability'])
+
+    # Primary rank by equal-weight priority score
+    priority = priority.sort_values('priority_equal', ascending=False)
+    priority['priority_rank'] = range(1, len(priority) + 1)
+
+    # Quadrant classification at median thresholds
+    c_thresh = priority['norm_criticality'].median()
+    v_thresh = priority['norm_vulnerability'].median()
+
+    def _quadrant(row):
+        hi_c = row['norm_criticality'] >= c_thresh
+        hi_v = row['norm_vulnerability'] >= v_thresh
+        if hi_c and hi_v:
+            return 'A'   # High criticality + high vulnerability → urgent
+        elif hi_c and not hi_v:
+            return 'B'   # High criticality + low vulnerability → monitor
+        elif not hi_c and hi_v:
+            return 'C'   # Low criticality + high vulnerability → maintain
+        else:
+            return 'D'   # Low criticality + low vulnerability → routine
+
+    priority['quadrant'] = priority.apply(_quadrant, axis=1)
+
+    priority.to_csv(os.path.join(output_dir, 'priority_matrix.csv'), index=False)
+    print(f'  -> Saved priority_matrix.csv ({len(priority)} bridges)', flush=True)
+
+    # ------------------------------------------------------------------
+    # Step 4: Print summary
+    # ------------------------------------------------------------------
+    quad_counts = priority['quadrant'].value_counts().sort_index()
+    print(f'\n  Quadrant distribution (monsoon peak, equal weights):')
+    for q, n in quad_counts.items():
+        label = {'A': 'Urgent',  'B': 'Monitor',
+                 'C': 'Maintain', 'D': 'Routine'}[q]
+        print(f'    Quadrant {q} ({label}): {n} bridges')
+
+    print(f'\n  Top 10 priority bridges (equal weights):')
+    for _, row in priority.head(10).iterrows():
+        print(f'    #{int(row["priority_rank"]):2d}  '
+              f'{int(row["bridge_id"])} ({row["road"]}, {row["name"][:30]}) '
+              f'| broken={int(row["broken_pairs"])} '
+              f'| exp_delay={row["expected_delay"]:,.0f} min '
+              f'| score={row["priority_equal"]:.3f} '
+              f'| Q{row["quadrant"]}')
+
+    print(f'\n  -> All outputs saved to {output_dir}/', flush=True)
+
+
+# ---------------------------------------------------------------
 # Main: select which round(s) to run
 # ---------------------------------------------------------------
 
@@ -454,13 +636,16 @@ if __name__ == '__main__':
         run_round2()
     elif mode == 'round3':
         run_round3()
+    elif mode == 'round4':
+        run_round4()
     elif mode == 'all':
         run_round1()
         run_round2()
         run_round3()
+        run_round4()
     else:
         print(f'Unknown mode: {mode}')
-        print('Usage: python model_run.py [round1|round2|round3|all]')
+        print('Usage: python model_run.py [round1|round2|round3|round4|all]')
         sys.exit(1)
 
     total_elapsed = time.time() - total_start
