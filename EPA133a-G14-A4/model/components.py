@@ -297,11 +297,6 @@ class Vehicle(Agent):
         Set the origin destination path of the vehicle
         """
         self.path_ids = self.model.get_route(self.generated_by.unique_id)
-        # A4: if no route exists, truck is stranded
-        if self.path_ids is None:
-            self.removed_at_step = self.model.schedule.steps
-            self.model.record_stranded(self)
-            self.model.schedule.remove(self)
 
     def step(self):
         """
