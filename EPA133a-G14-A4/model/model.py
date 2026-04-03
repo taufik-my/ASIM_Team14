@@ -56,7 +56,7 @@ class BangladeshModel(Model):
 
     step_time = 1
 
-    file_name = '../data/network_data.csv'
+    file_name = '../data/integrated_data.csv'
 
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0,
                  breakdown_probs=None, vulnerability_data=None, aadt_data=None,
@@ -86,10 +86,6 @@ class BangladeshModel(Model):
         # A4: per-source AADT data for truck generation rates
         # Dict mapping sourcesink_id -> truck AADT (trucks per day)
         self.aadt_data = aadt_data if aadt_data else {}
-
-        # A4: store removed bridges for restoration (Round 2 experiments)
-        self.removed_bridges = {}
-        self.stranded_count = 0
 
         # A4: simulation window — bridges draw their failure tick from [0, run_length)
         self.run_length = run_length
@@ -255,10 +251,7 @@ class BangladeshModel(Model):
         """
         Pick a random sink destination and find shortest path via NetworkX.
         Caches discovered paths in path_ids_dict for future lookups.
-
-        A4: If no path exists to the chosen sink (e.g. bridge removed),
-        try other reachable sinks. If no sink is reachable, return None
-        (truck is stranded).
+        Falls back to straight route if no path exists.
         """
         while True:
             sink = self.random.choice(self.sinks)
@@ -279,20 +272,7 @@ class BangladeshModel(Model):
             self.path_ids_dict[source, sink] = path_series
             return path_series
         except nx.NetworkXNoPath:
-            # A4: no path to chosen sink — try any reachable sink
-            reachable = [s for s in self.sinks
-                         if s != source and nx.has_path(self.G, source, s)]
-            if reachable:
-                alt_sink = self.random.choice(reachable)
-                path = nx.shortest_path(self.G, source=source, target=alt_sink,
-                                        weight='weight')
-                path_series = pd.Series(path)
-                path_series.reset_index(inplace=True, drop=True)
-                self.path_ids_dict[source, alt_sink] = path_series
-                return path_series
-            else:
-                # A4: no reachable sink at all — truck is stranded
-                return None
+            return self.get_straight_route(source)
 
     def get_route(self, source):
         """
@@ -306,29 +286,6 @@ class BangladeshModel(Model):
         pick up a straight route given an origin
         """
         return self.path_ids_dict[source, None]
-
-    # A4: Bridge removal methods for Round 2 criticality experiments
-    def remove_bridge(self, bridge_id):
-        """
-        Remove a bridge from the NetworkX graph (simulates complete destruction).
-        Saves edge data so the bridge can be restored later.
-        Clears route cache to force recalculation of all paths.
-        """
-        if bridge_id in self.G:
-            self.removed_bridges[bridge_id] = list(self.G.edges(bridge_id, data=True))
-            self.G.remove_node(bridge_id)
-            self.path_ids_dict.clear()
-
-    def restore_bridge(self, bridge_id):
-        """
-        Restore a previously removed bridge back into the NetworkX graph.
-        Clears route cache to force recalculation.
-        """
-        if bridge_id in self.removed_bridges:
-            self.G.add_node(bridge_id)
-            self.G.add_edges_from(self.removed_bridges[bridge_id])
-            del self.removed_bridges[bridge_id]
-            self.path_ids_dict.clear()
 
     def step(self):
         """
@@ -356,24 +313,6 @@ class BangladeshModel(Model):
             'total_waiting_time': vehicle.total_waiting_time,
             'bridges_passed': vehicle.bridges_passed,
             'path_length': len(vehicle.path_ids),
-        })
-
-    # A4: record stranded trucks (no reachable destination after bridge removal)
-    def record_stranded(self, vehicle):
-        """Record a truck that could not find any route to a destination."""
-        self.stranded_count += 1
-        self.trip_data.append({
-            'vehicle_id': vehicle.unique_id,
-            'origin_id': vehicle.generated_by.unique_id,
-            'origin_road': vehicle.generated_by.road_name,
-            'dest_id': None,
-            'dest_road': 'stranded',
-            'generated_at': vehicle.generated_at_step,
-            'removed_at': vehicle.removed_at_step,
-            'travel_time': 0,
-            'total_waiting_time': 0,
-            'bridges_passed': 0,
-            'path_length': 0,
         })
 
     def export_data(self, file_path):
